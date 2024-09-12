@@ -96,3 +96,5 @@ jiraAdminRoles: administrators,atlassian-addons-admin,site-admins,system-adminis
 
 general:
   location: ${aiv_base}/repository/Econfig
+management.metrics.mongo.command.enabled: false
+management.metrics.mongo.connectionpool.enabled: false
