@@ -70,7 +70,6 @@ logging:
   
 # Token used for MicroServices Internal Authentication 
 aiv-internalToken: ActiveIntelligence
-
 management.metrics.mongo.command.enabled: false
 management.metrics.mongo.connectionpool.enabled: false
 # Default Jndi connnection Datasources
