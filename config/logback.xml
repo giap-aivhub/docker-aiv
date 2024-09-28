@@ -5,8 +5,6 @@
     <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
     <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
 
-    <property name="HOME_LOG" value="/opt/logs/logs/core.log"/>
-
     <appender name="CORE-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
 
 
@@ -32,15 +30,38 @@
         </encoder>
     </appender>
 
-    <logger name="core" level="debug" additivity="true">
+    <logger name="core" level="INFO" additivity="true">
         <appender-ref ref="CORE-FILE-ROLLING"/>
     </logger>
 
+    <appender name="DATA-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%message%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <logger name="data" level="INFO" additivity="true">
+        <appender-ref ref="DATA-FILE-ROLLING"/>
+    </logger>
+
+    <appender name="DB-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>%message%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <logger name="db" level="INFO" additivity="true">
+        <appender-ref ref="DB-FILE-ROLLING"/>
+    </logger>
+
+    
     <!-- ... (repeat similar changes for other loggers) -->
 
     <!--ROOT-->
-
-    <property name="HOME_LOG8" value="/opt/logs/logs/start_core.log"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <layout class="ch.qos.logback.classic.PatternLayout">
@@ -48,7 +69,7 @@
         </layout>
     </appender>
 
-    <root level="info">
+    <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
 
