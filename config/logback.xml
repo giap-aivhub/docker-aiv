@@ -1,76 +1,82 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-
     <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
     <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
     <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
-
-    <appender name="CORE-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
-
-
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <fieldName>Timestamp</fieldName>
-                    <timeZone>UTC</timeZone>
-                </timestamp>
-                <pattern>
-                    <omitEmptyFields>true</omitEmptyFields>
-                    <pattern>
-                        {
-                        "Message": "#asJson{%message}",
-                        "TraceId": "%mdc{traceId}",
-                        "ServiceHostName": "${hostname}",
-                        "PID": "${PID:-}",
-                        "Ex": "%ex"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
+     <property name="HOME_LOG" value="/opt/logs/core.log"/>
+    <appender name="CORE-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/core.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+ECHO is off.
+            <maxFileSize>1MB</maxFileSize>
+ECHO is off.
+            <totalSizeCap>5MB</totalSizeCap>
+ECHO is off.
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
-
     <logger name="core" level="INFO" additivity="true">
         <appender-ref ref="CORE-FILE-ROLLING"/>
     </logger>
-
-    <appender name="DATA-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="ch.qos.logback.classic.PatternLayout">
-                <pattern>%message%n</pattern>
-            </layout>
+     <property name="HOME_LOG1" value="/opt/logs/db.log"/>
+    <appender name="DB-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG1}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/db.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+ECHO is off.
+            <maxFileSize>1MB</maxFileSize>
+ECHO is off.
+            <totalSizeCap>5MB</totalSizeCap>
+ECHO is off.
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
-
-    <logger name="data" level="INFO" additivity="true">
-        <appender-ref ref="DATA-FILE-ROLLING"/>
-    </logger>
-
-    <appender name="DB-FILE-ROLLING" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
-            <layout class="ch.qos.logback.classic.PatternLayout">
-                <pattern>%message%n</pattern>
-            </layout>
-        </encoder>
-    </appender>
-
     <logger name="db" level="INFO" additivity="true">
         <appender-ref ref="DB-FILE-ROLLING"/>
     </logger>
-
-    
-    <!-- ... (repeat similar changes for other loggers) -->
-
-    <!--ROOT-->
-
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <layout class="ch.qos.logback.classic.PatternLayout">
-            <Pattern>%d %p %c{1.} [%t] %m%n</Pattern>
-        </layout>
+    <property name="HOME_LOG2" value="/opt/logs/data.log"/>
+    <appender name="DATA-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG2}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/data.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+ECHO is off.
+            <maxFileSize>1MB</maxFileSize>
+ECHO is off.
+            <totalSizeCap>5MB</totalSizeCap>
+ECHO is off.
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
     </appender>
-
+    <logger name="data" level="INFO" additivity="true">
+        <appender-ref ref="DATA-FILE-ROLLING"/>
+    </logger>
+    <property name="HOME_LOG3" value="/opt/logs/all.log"/>
+    <appender name="ALL-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${HOME_LOG3}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/all.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+ECHO is off.
+            <maxFileSize>1MB</maxFileSize>
+ECHO is off.
+            <totalSizeCap>5MB</totalSizeCap>
+ECHO is off.
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
     <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
+         <appender-ref ref="ALL-FILE-ROLLING"/>
     </root>
-
 </configuration>
