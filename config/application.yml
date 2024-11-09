@@ -55,6 +55,10 @@ app:
   database: postgresql
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
+  logs:
+    jsonlogs: false
+    showdept: true
+    showtraceid: true
 
 #While creating Embed token
 # ekey -> Generating Embed Encrypted insternal token.
