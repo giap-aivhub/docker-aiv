@@ -49,12 +49,14 @@ app:
   slatKey: 0123456789abcdef
   ivspec: fedcba9876543210
   imgLocation: ${aiv_base}/repository/images/
+  appLocation: ${aiv_base}/repository/APP/
   repositoryLocation: ${aiv_base}/repository
   logDir: ${aiv_base}/logs
   deliveryLocation: ${aiv_base}/repository/delivery
   database: postgresql
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
+  noofreports: 10
   logs:
     jsonlogs: false
     showdept: true
@@ -74,6 +76,8 @@ logging:
   
 # Token used for MicroServices Internal Authentication 
 aiv-internalToken: ActiveIntelligence
+
+jasper.connection: true,java:comp/env/jdbc/classicmodels
 
 management.metrics.mongo.command.enabled: false
 management.metrics.mongo.connectionpool.enabled: false
