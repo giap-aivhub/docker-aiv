@@ -1,6 +1,9 @@
 FROM openjdk:17-oracle
-COPY aiv.jar /opt/run.jar
-EXPOSE 8080
+ARG BUILDPLATFORM
+
+WORKDIR /opt
 RUN microdnf install jq
-WORKDIR /opt/
+COPY aiv.jar /opt/run.jar
+
 ENV aiv_base=/opt
+EXPOSE 8080
