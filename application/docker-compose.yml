@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17
+    container_name: postgres
+    restart: always
+    expose:
+      - "5432"  
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${AIV_DB_USER}
+      POSTGRES_PASSWORD: ${AIV_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata  # Fixed environment variable format
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    ports:
+      - "6432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIV_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  aiv-ai: 
+    container_name: aiv-ai
+    image: jits023/aiv-ai:6.1.0
+    ports: 
+      - "8000:8000"
+    environment:
+      - AIV_JUPYTER=aiv-jupyter
+      - AIV_TOKEN=aivhub
+    volumes:
+      - ./dataloc:/usr/local/temp:rw
+    restart: always
+volumes:
+  postgres_data:

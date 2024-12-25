@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17
+    container_name: postgres
+    restart: always
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${AIV_DB_USER}
+      POSTGRES_PASSWORD: ${AIV_DB_PASSWORD}
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIV_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  aiv: 
+    container_name: aiv
+    image: jits023/aiv:6.1.0
+    command: >
+      /bin/bash -c '
+      if [ ! -f "/opt/config/application.yml" ]; then
+        echo "Error: application.yml not found at /opt/config/application.yml" && exit 1;
+      fi &&
+      if [ -d "/opt/config/drivers" ]; then
+        echo "Drivers directory found at /opt/config/drivers";
+      else
+        echo "Warning: Drivers directory not found at /opt/config/drivers";
+      fi &&
+      echo "Starting AIV application..." &&
+      java --add-opens=java.base/java.nio=ALL-UNNAMED 
+      --add-exports=java.base/sun.nio.ch=ALL-UNNAMED 
+      --add-opens=java.base/sun.nio.ch=ALL-UNNAMED 
+      -Dspring.config.location=/opt/config/application.yml 
+      -Dloader.path=/opt/config/drivers 
+      -cp /opt/repository/econfig/:run.jar 
+      org.springframework.boot.loader.PropertiesLauncher'
+    ports: 
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      aiv_port: 8080
+      aiv_base: /opt
+      aiv_db_url: jdbc:postgresql://db:5432/postgres
+      aiv_db_user: ${AIV_DB_USER}
+      aiv_db_password: ${AIV_DB_PASSWORD}
+      security_db_url: jdbc:postgresql://db:5432/postgres?currentSchema=security
+      security_db_user: ${AIV_DB_USER}
+      security_db_password: ${AIV_DB_PASSWORD}
+    volumes:
+      - ./config:/opt/config:rw
+      - ./repository:/opt/repository:rw
+      - ./logs:/opt/logs:rw
+      - ./dataloc:/usr/local/temp:rw
+
+  aiv-ai: 
+    container_name: aiv-ai
+    image: jits023/aiv-ai:6.1.0
+    ports: 
+      - "8000:8000"
+    environment:
+      - AIV_JUPYTER=aiv-jupyter
+      - AIV_TOKEN=aivhub
+    volumes:
+      - ./dataloc:/usr/local/temp:rw
+    restart: always
