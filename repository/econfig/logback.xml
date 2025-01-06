@@ -19,7 +19,7 @@ ECHO is off.
             <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
-    <logger name="core" level="INFO" additivity="true">
+    <logger name="core" level="INFO" additivity="false">
         <appender-ref ref="CORE-FILE-ROLLING"/>
     </logger>
      <property name="HOME_LOG1" value="/opt/logs/db.log"/>
@@ -38,7 +38,7 @@ ECHO is off.
             <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
-    <logger name="db" level="INFO" additivity="true">
+    <logger name="db" level="INFO" additivity="false">
         <appender-ref ref="DB-FILE-ROLLING"/>
     </logger>
     <property name="HOME_LOG2" value="/opt/logs/data.log"/>
@@ -57,9 +57,71 @@ ECHO is off.
             <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
-    <logger name="data" level="INFO" additivity="true">
+    <logger name="data" level="INFO" additivity="false">
         <appender-ref ref="DATA-FILE-ROLLING"/>
     </logger>
+
+    <property name="BIRT_LOG" value="/opt/logs/birtaiv.log"/>
+    <appender name="BIRT-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${BIRT_LOG}</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/birtaiv.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>1MB</maxFileSize>
+            <totalSizeCap>5MB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="birt" level="INFO" additivity="false">
+        <appender-ref ref="BIRT-FILE-ROLLING"/>
+    </logger>
+
+    <property name="REST_LOG" value="/opt/logs/rest.log"/>
+    <appender name="REST-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${REST_LOG}</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/rest.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>1MB</maxFileSize>
+            <totalSizeCap>5MB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="rest" level="INFO" additivity="false">
+        <appender-ref ref="REST-FILE-ROLLING"/>
+    </logger>
+
+    <property name="JASPER_LOG" value="/opt/logs/jasper.log"/>
+    <appender name="JASPER-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${JASPER_LOG}</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/archived/jasper.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>1MB</maxFileSize>
+            <totalSizeCap>5MB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d %p %c{1.} [%t] %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="jasper" level="INFO" additivity="false">
+        <appender-ref ref="JASPER-FILE-ROLLING"/>
+    </logger>
+    
+
     <property name="HOME_LOG3" value="/opt/logs/all.log"/>
     <appender name="ALL-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG3}</file>
@@ -76,7 +138,16 @@ ECHO is off.
             <pattern>%d %p %c{1.} [%t] %m%n</pattern>
         </encoder>
     </appender>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>%d %p %c{1.} [%t] %m%n</Pattern>
+        </layout>
+    </appender>
+
     <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
          <appender-ref ref="ALL-FILE-ROLLING"/>
     </root>
+
+    
 </configuration>
