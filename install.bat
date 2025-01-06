@@ -17,8 +17,8 @@ set aiv_base=%CD%
 set "original_file=%CD%\config\application.template"
 set "aiv_logback_file=%CD%\config\logback.template"
 
-set "new_file=%CD%\config\application.yml"
-set "aiv_logback_new_file=%CD%\config\logback.xml"
+set "new_file=%CD%\repository\econfig\application.yml"
+set "aiv_logback_new_file=%CD%\repository\econfig\logback.xml"
 
 set "aiv_base=%aiv_base:\=/%"
 
