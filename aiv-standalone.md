@@ -74,8 +74,12 @@ Before proceeding, ensure you have the following installed and configured on you
 
 ## Step 3: Download and Install the AIV6 Application
 
-1. Download the AIV6 application from [this link](https://dist.aivhub.com/aiv.zip).
-
+1. Download the AIV6 application from [this link](https://aivhub-my.sharepoint.com/:u:/p/mayur/Ef1K9JdLajFMnQ6ruoST-K0BiZA1_5q_QIMj64FqBHORQg?e=Ltw6wD).
+2. Extract the contents of the aiv.zip folder.
+3. Locate the aiv.jar file within the extracted files.
+4. Copy the aiv.jar file.
+5. Navigate to the root folder where the aiv-standalone.md file is located.
+6. Paste the aiv.jar file into the same folder.
 ---
 
 ## Step 4: Configure Installation Inside `install.sh`
