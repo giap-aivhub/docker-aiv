@@ -79,7 +79,7 @@ Before proceeding, ensure you have the following installed and configured on you
 3. Locate the aiv.jar file within the extracted files.
 4. Copy the aiv.jar file.
 5. Navigate to the root folder where the aiv-standalone.md file is located.
-6. Paste the aiv.jar file into the same folder.
+6. Paste the aiv.jar file into the application folder.
 ---
 
 ## Step 4: Configure Installation Inside `install.sh`
