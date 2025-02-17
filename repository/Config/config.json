@@ -166,7 +166,7 @@
          {
             "name":"allowedHeaders",
             "displayName":"Allow Headers",
-            "defaultValue":"ep,archivemode,action,category,id,auth-token,brtm,Content-Type,dc,local_owner,logs_category,owner,owner_roles,notificationCount,referer,roles,section,timezone,token,username,vdc,x-xsrftoken,groupId,status,recurringId,eb,pwdFlag,name,User-Agent,type.newName,oldName,newKey,oldKey,groupName,startDate,endDate,userType,reportId,fileType,fileId,dm_id,messageFor,dbKey,pt,types,outputTypes,notiFor,curr_defId,new_defId,widgetId,privilegeId,dashboardId,notificationId,type,name,ename,notificationId,newName",
+            "defaultValue":"ep,archiveMode,action,category,id,auth-token,brtm,Content-Type,dc,local_owner,logs_category,owner,owner_roles,notificationCount,referer,roles,section,timezone,token,username,vdc,x-xsrftoken,groupId,status,recurringId,eb,pwdFlag,name,User-Agent,type.newName,oldName,newKey,oldKey,groupName,startDate,endDate,userType,reportId,fileType,fileId,dm_id,messageFor,dbKey,pt,types,outputTypes,notiFor,curr_defId,new_defId,widgetId,privilegeId,dashboardId,notificationId,type,name,ename,notificationId,newName",
             "type":"text",
             "placeholder":""
          },
