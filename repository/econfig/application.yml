@@ -35,6 +35,16 @@ spring:
    security:
      enabled: true
      change-log: classpath:db/changelog/db.changelog-security.sql
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: task-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: com.aiv.cluster.MapDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: com.aiv.cluster.MapSerializer
 
 #For JNDI Datasources
 datasources:
@@ -57,6 +67,15 @@ app:
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
   noofreports: 10
+  task:
+      kafka:
+        retention.ms: 60000
+        topic:
+          topicName: task-topic       # Name of the Kafka topic
+          partitions: 2         # Number of partitions for the topic
+          replication-factor:  1
+      manager:
+        mode: single  # use "single" if you want to disable Kafka or multi
 
 #While creating Embed token
 # ekey -> Generating Embed Encrypted insternal token.
