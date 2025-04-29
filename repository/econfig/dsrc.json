@@ -1,0 +1,18 @@
+{
+
+	"serverscript":"com.aivdata.data.jobservices.ServerScriptServices",
+	"existingCsv":"com.aivdata.data.jobservices.CSVService",
+	"existingExcel":"com.aivdata.data.service.ExcelService",
+	"existingJson":"com.aivdata.data.jobservices.JsonService",
+	"spark":"com.aivdata.data.jobservices.SparkService",
+	"bigQuery":"com.aivdata.data.jobservices.BigQueryService",
+	"bigquery":"com.aivdata.data.jobservices.BigQueryService",
+	"parquet":"com.aivdata.data.jobservices.ParquetService",
+	"dataendpoints":"com.aivhub.data.jobservices.DataEndPointService",
+	"googlesheets":"com.aivdata.data.jobservices.GoogleSheetServices",
+	"cds":"com.aivdata.data.jobservices.CDSServices",
+	"dremio":"com.aivhub.data.jobservices.DremioServices",
+	"pipelinecds":"com.aivdata.data.jobservices.PDSService",
+	"staticData":"com.aivdata.data.jobservices.StaticServices",
+	"externalServices":"com.aivhub.data.jobservices.ExternalServiceServices"
+}
