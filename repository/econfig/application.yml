@@ -68,14 +68,14 @@ app:
   isJira: false
   noofreports: 10
   task:
-      kafka:
-        retention.ms: 60000
-        topic:
-          topicName: task-topic       # Name of the Kafka topic
-          partitions: 2         # Number of partitions for the topic
-          replication-factor:  1
-      manager:
-        mode: single  # use "single" if you want to disable Kafka or multi
+    kafka:
+      retention.ms: 60000
+      topic:
+        topicName: task-topic       # Name of the Kafka topic
+        partitions: 2         # Number of partitions for the topic
+        replication-factor:  1
+    manager:
+      mode: single  # use "single" if you want to disable Kafka or multi
 
 #While creating Embed token
 # ekey -> Generating Embed Encrypted insternal token.
