@@ -35,7 +35,7 @@ services:
 
   aiv: 
     container_name: aiv
-    image: jits023/aiv:6.1.0
+    image: jits023/aiv:6.2.2
     command: >
       /bin/bash -c '
       if [ ! -f "/opt/repository/econfig/application.yml" ]; then
