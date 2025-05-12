@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   db:
+    platform: linux/amd64
     image: postgres:17
     container_name: postgres
     restart: always
@@ -22,6 +23,7 @@ services:
       retries: 5
 
   pgadmin:
+    platform: linux/amd64
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     environment:
@@ -34,8 +36,9 @@ services:
         condition: service_healthy
 
   aiv: 
+    platform: linux/amd64
     container_name: aiv
-    image: jits023/aiv:6.2.2
+    image: jits023/aiv:6.2.3
     command: >
       /bin/bash -c '
       if [ ! -f "/opt/repository/econfig/application.yml" ]; then
