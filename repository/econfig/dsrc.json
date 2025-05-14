@@ -14,5 +14,6 @@
 	"dremio":"com.aivhub.data.jobservices.DremioServices",
 	"pipelinecds":"com.aivdata.data.jobservices.PDSService",
 	"staticData":"com.aivdata.data.jobservices.StaticServices",
-	"externalServices":"com.aivhub.data.jobservices.ExternalServiceServices"
+	"externalServices":"com.aivhub.data.jobservices.ExternalServiceServices",
+	"stash": "com.aivdata.data.jobservices.StashServices"
 }
