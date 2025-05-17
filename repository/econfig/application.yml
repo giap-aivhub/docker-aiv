@@ -94,7 +94,7 @@ aiv-internalToken: ActiveIntelligence
 management.metrics.mongo.command.enabled: false
 management.metrics.mongo.connectionpool.enabled: false
 
-jasper.connection: true,java:comp/env/jdbc/classicmodels
+#jasper.connection: true,java:comp/env/jdbc/classicmodels
 # Default Jndi connnection Datasources
 # external.db.1: jdbc,mysql,ClassicModels,true,java:comp/env/jdbc/classicmodels
 #external.db.2: olap,SampleData,mondrian.olap4j.MondrianOlap4jDriver,jdbc:mondrian:DataSource,D:/Repositories/AIV/tomcat/data/sampledata.mondrian.xml,true,org.hsqldb.jdbcDriver,java:comp/env/jdbc/SampleData

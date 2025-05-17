@@ -3,12 +3,12 @@ setlocal enabledelayedexpansion
 
 :: Set the variables
 set aiv_port=8080
-set aiv_db_url=jdbc:postgresql://localhost:5432/aiv
+set aiv_db_url=jdbc:postgresql://localhost:5432/postgres
 set aiv_db_user=postgres
-set aiv_db_password=root
-set security_db_url=jdbc:postgresql://localhost:5432/aiv?currentSchema=security
+set aiv_db_password=postgres
+set security_db_url=jdbc:postgresql://localhost:5432/postgres?currentSchema=security
 set security_db_user=postgres
-set security_db_password=root
+set security_db_password=postgres
 set aiv_logs=%CD%\logs
 set aiv_logs=%aiv_logs:\=/%
 set aiv_base=%CD%
