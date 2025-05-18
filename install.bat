@@ -43,23 +43,14 @@ set "temp_file=%CD%\config\temp.yml"
 :: Move the temporary file to the new file
 move /y "%temp_file%" "%new_file%"
 
+:: Create a temporary file for processing
+set "temp_file1=%CD%\config\temp1.xml"
 :: Read the application.yml file and replace placeholders
 (for /f "delims=" %%i in ('type "%aiv_logback_file%"') do (
     set "line=%%i"
     set "line=!line:${aiv_base}=%aiv_base%!"
     echo !line!
-)) > "%temp_file%"
-
-:: Create a temporary file for processing
-set "temp_file1=%CD%\config\temp1.xml"
-
-:: Read the logback.xml file and replace placeholders
-(for /f "delims=" %%i in ('type "%aiv_logback_file%"') do (
-    set "line=%%i"
-	set "line=!line:${aiv_logs}=%aiv_logs%!"
-    echo !line!
 )) > "%temp_file1%"
-
 
 :: Move the temporary file to the new file
 move /y "%temp_file1%" "%aiv_logback_new_file%"

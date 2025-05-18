@@ -8,11 +8,8 @@
         <file>${HOME_LOG}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>logs/archived/core.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-ECHO is off.
             <maxFileSize>1MB</maxFileSize>
-ECHO is off.
             <totalSizeCap>5MB</totalSizeCap>
-ECHO is off.
             <maxHistory>60</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -27,11 +24,8 @@ ECHO is off.
         <file>${HOME_LOG1}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>logs/archived/db.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-ECHO is off.
             <maxFileSize>1MB</maxFileSize>
-ECHO is off.
             <totalSizeCap>5MB</totalSizeCap>
-ECHO is off.
             <maxHistory>60</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -46,11 +40,8 @@ ECHO is off.
         <file>${HOME_LOG2}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>logs/archived/data.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-ECHO is off.
             <maxFileSize>1MB</maxFileSize>
-ECHO is off.
             <totalSizeCap>5MB</totalSizeCap>
-ECHO is off.
             <maxHistory>60</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -127,11 +118,8 @@ ECHO is off.
         <file>${HOME_LOG3}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>logs/archived/all.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-ECHO is off.
             <maxFileSize>1MB</maxFileSize>
-ECHO is off.
             <totalSizeCap>5MB</totalSizeCap>
-ECHO is off.
             <maxHistory>60</maxHistory>
         </rollingPolicy>
         <encoder>

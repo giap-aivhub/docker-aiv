@@ -4,6 +4,8 @@ server:
   port: ${aiv_port}
 
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
   resources:
     static-locations: classpath:/static/,file:///${aiv_base}/repository/images/
   jackson:
@@ -45,14 +47,14 @@ spring:
       value-serializer: com.aiv.cluster.MapSerializer
 
 # This is normal logging if we missed anything
-logging:
-  level:
-    root: ERROR
-security:
-  basic:
-    path: /basic
-    enabled: true
-  ignored: /public
+#logging:
+#  level:
+#    root: ERROR
+#security:
+#  basic:
+#    path: /basic
+#    enabled: true
+#  ignored: /public
 
 #For JNDI Datasources
 datasources:
@@ -84,10 +86,10 @@ app:
         replication-factor:  1
     manager:
       mode: single  # use "single" if you want to disable Kafka or multi
-  logs:
-    jsonlogs: false
-    showdept: true
-    showtraceid: true
+#  logs:
+#    jsonlogs: false
+#    showdept: true
+#    showtraceid: true
 
 #While creating Embed token
 # ekey -> Generating Embed Encrypted insternal token.
@@ -95,30 +97,33 @@ app:
 embed:
   ekey: ActiveInteigence
   tokenKey: H0WWWrNDCCoVKVPXMSei9/+rDJcLbgkEOXhayw790lY=
-  
-  
+  iscustomtoken: false
+
+logging:
+  level:
+    liquibase: OFF
+
 # Token used for MicroServices Internal Authentication 
 aiv-internalToken: ActiveIntelligence
-
-# Default Jndi connnection Datasources
-external.db.1: jdbc,mysql,ClassicModels,true,java:comp/env/jdbc/classicmodels
-#external.db.2: olap,SampleData,mondrian.olap4j.MondrianOlap4jDriver,jdbc:mondrian:DataSource,D:/Repositories/AIV/tomcat/data/sampledata.mondrian.xml,true,org.hsqldb.jdbcDriver,java:comp/env/jdbc/SampleData
-
-jasper.connection: true,java:comp/env/jdbc/classicmodels
-
-#com.atlassian.jira.clickjacking.protection.disabled: true
-jira.security.csp.sandbox.disabled: true
-logging.level.com.atlassian.connect.spring: DEBUG
-atlassian.connect.require-auth-include-paths: /v5/ #jpa:  #properties: #hibernate: # default_schema: Default
-com.atlassian.jira.clickjacking.protection.exclude: /execute_adhoc_report
-atlassian_url: https://app.atlassian.net
-jira.driver-class-name: org.postgresql.Driver
-jira.url: jdbc:postgresql://db:5432/jiraTest
-jira.username: postgres
-jira.password: postgres
-jira.type_database: postgresql
-jira.protocol: jdbc
-jiraAdminRoles: administrators,atlassian-addons-admin,site-admins,system-administrators
-
 management.metrics.mongo.command.enabled: false
 management.metrics.mongo.connectionpool.enabled: false
+
+#jasper.connection: true,java:comp/env/jdbc/classicmodels
+# Default Jndi connnection Datasources
+#external.db.1: jdbc,mysql,ClassicModels,true,java:comp/env/jdbc/classicmodels
+#external.db.2: olap,SampleData,mondrian.olap4j.MondrianOlap4jDriver,jdbc:mondrian:DataSource,D:/Repositories/AIV/tomcat/data/sampledata.mondrian.xml,true,org.hsqldb.jdbcDriver,java:comp/env/jdbc/SampleData
+
+
+#com.atlassian.jira.clickjacking.protection.disabled: true
+#jira.security.csp.sandbox.disabled: true
+#logging.level.com.atlassian.connect.spring: DEBUG
+#atlassian.connect.require-auth-include-paths: /v5/ #jpa:  #properties: #hibernate: # default_schema: Default
+#com.atlassian.jira.clickjacking.protection.exclude: /execute_adhoc_report
+#atlassian_url: https://app.atlassian.net
+#jira.driver-class-name: org.postgresql.Driver
+#jira.url: jdbc:postgresql://db:5432/jiraTest
+#jira.username: postgres
+#jira.password: postgres
+#jira.type_database: postgresql
+#jira.protocol: jdbc
+#jiraAdminRoles: administrators,atlassian-addons-admin,site-admins,system-administrators
