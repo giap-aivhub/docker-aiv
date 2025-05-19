@@ -78,12 +78,14 @@ services:
 
   aiv-ai: 
     container_name: aiv-ai
-    image: jits023/aiv-ai:6.1.0
+    image: jits023/aiv-ai:6.3.0
     ports: 
       - "8001:8001"
     environment:
       - AIV_JUPYTER=aiv-jupyter
       - AIV_TOKEN=aivhub
     volumes:
-      - ./dataloc:/usr/local/temp:rw
+      - ./ai/dataloc:/usr/local/temp:rw
+      - ./ai/data:/app/data
+      - ./ai/scriptfiles:/app/scriptfiles
     restart: always
