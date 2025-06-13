@@ -203,7 +203,7 @@
          {
             "name":"pipeLineResultStore",
             "displayName":"Max Result Store(In Seconds)",
-            "defaultValue":"600",
+            "defaultValue":"10",
             "required":true,
             "type":"text",
             "placeholder":""
