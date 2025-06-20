@@ -2,10 +2,7 @@ name: Build Debian Package
 
 on:
   push:
-    branches: [ debian/* ]
     tags: [ 'debian/*' ]
-  pull_request:
-    branches: [ debian/* ]
 
 jobs:
   build:
@@ -32,8 +29,8 @@ jobs:
         # extract version from tag
         VERSION=$(echo $TAG | sed 's/debian\///')
         # rename package
-        mv aiv-build.deb avi-${VERSION}-deb11a12.deb
-        echo "Renamed package to avi-${VERSION}-deb11a12.deb"
+        mv aiv-build.deb aiv-${VERSION}-deb11a12.deb
+        echo "Renamed package to aiv-${VERSION}-deb11a12.deb"
 
 
     - name: Upload artifact
@@ -47,4 +44,4 @@ jobs:
       if: github.ref_type == 'tag'
       with:
         files: |
-          avi-*.deb
+          aiv-*.deb
