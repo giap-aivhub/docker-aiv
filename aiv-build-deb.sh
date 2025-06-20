@@ -73,4 +73,4 @@ chmod 755 aiv-build/DEBIAN/prerm
 chmod 755 aiv-build/usr/bin/aiv
 
 # Build the package
-dpkg-deb --build aiv-build
+dpkg-deb -Zxz --build aiv-build
