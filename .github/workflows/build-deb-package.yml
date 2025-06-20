@@ -24,11 +24,7 @@ jobs:
     - name: Build debian package
       run: bash aiv-build-deb.sh
 
-    - name: Rename package to debian 12 format
-      run: |
-        mv aiv-build.deb aiv-deb12.deb
-
-    - name: Rename package to debian 12 format and tag versionn if available
+    - name: Rename package to debian 11,12 format and tag versionn if available
       if: startsWith(github.ref, 'refs/tags/debian/')
       env:
         TAG: ${{ github.ref_name }}
@@ -36,15 +32,15 @@ jobs:
         # extract version from tag
         VERSION=$(echo $TAG | sed 's/debian\///')
         # rename package
-        mv aiv-deb12.deb avi-${VERSION}-deb12.deb
-        echo "Renamed package to avi-${VERSION}-deb12.deb"
+        mv aiv-build.deb avi-${VERSION}-deb11a12.deb
+        echo "Renamed package to avi-${VERSION}-deb11a12.deb"
 
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: aiv-build-package
-        path: aiv-deb12.deb
+        path: aiv-build.deb
 
     - name: Release
       uses: softprops/action-gh-release@v2
