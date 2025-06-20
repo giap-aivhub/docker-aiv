@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+# Stop the service if running
+if [ -d /run/systemd/system ]; then
+    systemctl stop aiv.service || true
+    systemctl disable aiv.service || true
+fi
+
+exit 0

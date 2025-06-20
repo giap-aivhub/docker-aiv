@@ -1,0 +1,34 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches: [ debian/* ]
+  pull_request:
+    branches: [ debian/* ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Get run.jar from Docker image
+      run: |
+        docker pull jits023/aiv:6.3.4
+        docker create --name aiv_container jits023/aiv:6.3.4
+        docker cp aiv_container:/opt/run.jar aiv.jar
+        docker rm -f aiv_container
+
+    - name: Build debian package
+      run: bash aiv-build-deb.sh
+
+    - name: Rename package to debian 12 format
+      run: |
+        mv aiv-build.deb aiv-build-deb12.deb
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aiv-build-package
+        path: aiv-build*.deb

@@ -1,0 +1,10 @@
+Package: aiv
+Version: 1.0.0
+Section: java
+Priority: optional
+Architecture: all
+Depends: openjdk-17-jdk-headless, ca-certificates
+Maintainer: Your Name <your.email@example.com>
+Description: AIV Spring Application
+ Java Spring application for AIV system.
+ This package includes the necessary components to run the AIV service.

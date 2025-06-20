@@ -5,32 +5,32 @@ server:
     min-response-size: 1024
   servlet:
     context-path: /aiv
-  port: ${aiv_port}
+  port: 8080
 
 spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
   resources:
-    static-locations: classpath:/static/,file:///${aiv_base}/repository/images/
+    static-locations: classpath:/static/,file:///var/lib/aiv/repository/images/
   jackson:
     serialization:
       WRITE_DATES_AS_TIMESTAMPS: false
     time-zone: UTC
   datasource:
-    url: ${aiv_db_url} # database for aiv schema
-    username: ${aiv_db_user}
-    password: ${aiv_db_password} 
+    url: jdbc:postgresql://localhost:5432/postgres # database for aiv schema
+    username: postgres
+    password: postgres
     driverClassName: org.postgresql.Driver
   datasource1:
-    url: ${security_db_url} # database for security schema
-    username: ${security_db_user}
-    password: ${security_db_password} 
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=security # database for security schema
+    username: postgres
+    password: postgres
     driverClassName: org.postgresql.Driver
   mvc:
     pathmatch:
       matching-strategy: ANT_PATH_MATCHER
   jpa:
-    hibernate: 
+    hibernate:
       ddl-auto: update
   liquibase:
    aiv:
@@ -52,7 +52,7 @@ spring:
 
 #For JNDI Datasources
 datasources:
-  dslist[0]: '{"jndi-name":"jdbc/ActiveIDB","driver-class-name":"org.postgresql.Driver","url":"${aiv_db_url}","username":"${aiv_db_user}","password":"${aiv_db_password}"}'
+  dslist[0]: '{"jndi-name":"jdbc/ActiveIDB","driver-class-name":"org.postgresql.Driver","url":"jdbc:postgresql://localhost:5432/postgres","username":"postgres","password":"postgres"}'
 
 #Application some default values
 # slatKey -> For stoken decryption SecretKey
@@ -62,11 +62,11 @@ datasources:
 app:
   slatKey: 0123456789abcdef
   ivspec: fedcba9876543210
-  imgLocation: ${aiv_base}/repository/images/
-  appLocation: ${aiv_base}/repository/APP/
-  repositoryLocation: ${aiv_base}/repository
-  logDir: ${aiv_base}/logs
-  deliveryLocation: ${aiv_base}/repository/delivery
+  imgLocation: /var/lib/aiv/repository/images/
+  appLocation: /var/lib/aiv/repository/APP/
+  repositoryLocation: /var/lib/aiv/repository
+  logDir: /var/lib/aiv
+  deliveryLocation: /var/lib/aiv/repository/delivery
   database: postgresql
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
@@ -88,12 +88,12 @@ embed:
   ekey: ActiveInteigence
   tokenKey: H0WWWrNDCCoVKVPXMSei9/+rDJcLbgkEOXhayw790lY=
   iscustomtoken: false
-  
+
 logging:
   level:
     liquibase: OFF
-  
-# Token used for MicroServices Internal Authentication 
+
+# Token used for MicroServices Internal Authentication
 aiv-internalToken: ActiveIntelligence
 management.metrics.mongo.command.enabled: false
 management.metrics.mongo.connectionpool.enabled: false
