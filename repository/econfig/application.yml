@@ -65,7 +65,7 @@ app:
   imgLocation: /var/lib/aiv/repository/images/
   appLocation: /var/lib/aiv/repository/APP/
   repositoryLocation: /var/lib/aiv/repository
-  logDir: /var/lib/aiv
+  logDir: /var/log/aiv
   deliveryLocation: /var/lib/aiv/repository/delivery
   database: postgresql
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
