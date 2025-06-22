@@ -18,26 +18,14 @@ jobs:
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
 
+    - name: Install dependencies
+      run: sudo apt-get install -y debhelper
+
     - name: Build debian package
-      run: bash aiv-build-deb.sh
-
-    - name: Rename package to debian 11,12 format and tag versionn if available
       if: startsWith(github.ref, 'refs/tags/debian/')
-      env:
-        TAG: ${{ github.ref_name }}
-      run: |
-        # extract version from tag
-        VERSION=$(echo $TAG | sed 's/debian\///')
-        # rename package
-        mv aiv-build.deb aiv-${VERSION}-deb11a12.deb
-        echo "Renamed package to aiv-${VERSION}-deb11a12.deb"
-
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: aiv-build-package
-        path: aiv-build.deb
+      run: 
+        export VERSION=$(echo $TAG | sed 's/debian\///')
+        bash aiv-build-deb.sh
 
     - name: Release
       uses: softprops/action-gh-release@v2
