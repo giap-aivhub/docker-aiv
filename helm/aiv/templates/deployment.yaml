@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aiv.fullname" . }}
+  labels:
+    {{- include "aiv.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aiv.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "aiv.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aiv.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          env:
+            {{ range $key, $val := .Values.envs }}
+            - name: {{ $key }}
+            {{- if and $val (kindIs "slice" $val) }}
+              {{- $val | toYaml | nindent 14 }}
+            {{- else if and  $val (kindIs "map" $val) }}
+              {{- toYaml $val | nindent 14 }}
+            {{- else if and $val (kindIs "float64" $val) }}
+              value: {{ $val }}
+            {{- else }}
+              value: {{ $val | quote }}
+            {{- end }}
+            {{- end }}
+
+          {{- if .Values.env }}
+          envFrom:
+            - secretRef:
+                name: {{ include "aiv.fullname" . }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.volumeMounts }}
+            {{- include "common.tplvalues.render" ( dict "value" .Values.volumeMounts "context" $ ) | nindent 10 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.files }}
+        - name: files
+          configMap:
+            name: {{ include "aiv.fullname" . }}-files
+        {{- end }}
+
+        {{- if .Values.base64_files }}
+        - name: base64_files
+          secret:
+            secretName: {{ include "aiv.fullname" . }}-secret-files
+        {{- end }}
+
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
