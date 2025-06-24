@@ -1,0 +1,60 @@
+name: Docker Image Release
+
+on:
+  push:
+    tags:
+      - 'docker/*'  # Trigger on tags with pattern docker/<version>
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: get-version
+        run: |
+          # Extract version from the tag (removes 'docker/' prefix)
+          VERSION=${GITHUB_REF#refs/tags/docker/}
+          # Add the debian12 suffix to the version
+          VERSION_WITH_SUFFIX="${VERSION}-debian12"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_suffix=${VERSION_WITH_SUFFIX}" >> $GITHUB_OUTPUT
+          echo "Extracted version: ${VERSION}"
+          echo "Version with suffix: ${VERSION_WITH_SUFFIX}"
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.get-version.outputs.version_suffix }}
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
