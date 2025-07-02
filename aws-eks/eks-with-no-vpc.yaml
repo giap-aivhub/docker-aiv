@@ -1,0 +1,483 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Complete EKS Cluster with Node Groups and PostgreSQL RDS using Existing VPC'
+
+Parameters:
+  # EKS Parameters
+  ClusterName:
+    Description: 'The name of the EKS cluster'
+    Type: String
+    Default: 'aiv-cluster'
+  
+  ExistingVpcId:
+    Description: 'ID of the existing VPC'
+    Type: 'AWS::EC2::VPC::Id'
+  
+  SubnetIds:
+    Description: 'List of subnet IDs for EKS (at least two across AZs)'
+    Type: 'List<AWS::EC2::Subnet::Id>'
+  
+  PrivateSubnetIds:
+    Description: 'List of private subnet IDs for RDS'
+    Type: 'List<AWS::EC2::Subnet::Id>'
+  
+  NodeInstanceType:
+    Description: 'EC2 instance type for worker nodes'
+    Type: String
+    Default: 't3.medium'
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t3.small
+      - t3.medium
+      - t3.large
+  
+  NodeVolumeSize:
+    Description: 'Worker node volume size in GB'
+    Type: Number
+    Default: 20
+  
+  NodeGroupMinSize:
+    Description: 'Minimum number of worker nodes'
+    Type: Number
+    Default: 2
+  
+  NodeGroupMaxSize:
+    Description: 'Maximum number of worker nodes'
+    Type: Number
+    Default: 3
+  
+  NodeGroupDesiredSize:
+    Description: 'Desired number of worker nodes'
+    Type: Number
+    Default: 2
+  
+  KeyPairName:
+    Description: 'Name of an existing EC2 KeyPair to enable SSH access'
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  
+  KubernetesVersion:
+    Description: 'Kubernetes version for the EKS cluster'
+    Type: String
+    Default: '1.33'
+    AllowedValues:
+      - '1.31'
+      - '1.32'
+      - '1.33'
+
+  # PostgreSQL Parameters
+  DBInstanceIdentifier:
+    Description: 'The DB instance identifier'
+    Type: String
+    Default: 'aiv-eks'
+  
+  DBName:
+    Description: 'The database name'
+    Type: String
+    Default: ''
+  
+  DBUsername:
+    Description: 'The database admin username'
+    Type: String
+    Default: 'eksAdmin'
+  
+  DBPassword:
+    Description: 'The database admin password'
+    Type: String
+    NoEcho: true
+  
+  DBInstanceClass:
+    Description: 'The database instance type'
+    Type: String
+    Default: 'db.t4g.medium'
+  
+  DBAllocatedStorage:
+    Description: 'The allocated storage in GB'
+    Type: Number
+    Default: 20
+  
+  DBEngineVersion:
+    Description: 'PostgreSQL engine version'
+    Type: String
+    Default: '16.4'
+    AllowedValues:
+      - '16.6'
+      - '16.4'
+      - '15.12'
+Conditions:
+  IsVersion16: !Equals [!Ref DBEngineVersion, '16.4']
+  IsVersion15: !Equals [!Ref DBEngineVersion, '15.12']
+
+Resources:
+  # EKS Cluster IAM Role
+  EKSClusterRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - eks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonEKSClusterPolicy'
+      Path: '/'
+
+  # EKS Cluster
+  EKSCluster:
+    Type: 'AWS::EKS::Cluster'
+    Properties:
+      Name: !Ref ClusterName
+      Version: !Ref KubernetesVersion
+      RoleArn: !GetAtt EKSClusterRole.Arn
+      ResourcesVpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref ClusterControlPlaneSecurityGroup
+
+  # Node Group IAM Role
+  NodeGroupRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy'
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+        - 'arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy'
+      Path: '/'
+      Policies:
+      - PolicyName: 'CustomNodePermissions'
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:DescribeInstanceStatus
+                - ec2:DescribeTags
+                - ec2:DescribeVolumes
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:DescribeAlarms
+                - cloudwatch:DescribeAlarmsForMetric
+                - cloudwatch:GetDashboard
+                - cloudwatch:ListMetrics
+                - cloudwatch:GetMetricData
+                - cloudwatch:ListDashboards
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - logs:GetLogEvents
+                - logs:FilterLogEvents
+              Resource: "arn:aws:logs:*:*:*"
+            - Effect: Allow
+              Action:
+                - ssm:DescribeAssociation
+                - ssm:GetDeployablePatchSnapshotForInstance
+                - ssm:GetDocument
+                - ssm:DescribeDocument
+                - ssm:GetManifest
+                - ssm:GetParameters
+                - ssm:ListAssociations
+                - ssm:ListInstanceAssociations
+                - ssm:PutInventory
+                - ssm:PutComplianceItems
+                - ssm:PutConfigurePackageResult
+                - ssm:UpdateAssociationStatus
+                - ssm:UpdateInstanceAssociationStatus
+                - ssm:UpdateInstanceInformation
+                - ssm:DescribeInstanceInformation
+                - ssm:GetParameter
+                - ssm:PutParameter
+                - ssm:StartAutomationExecution
+                - ssm:DescribeAutomationExecutions
+                - ssm:ListCommands
+                - ssm:ListCommandInvocations
+                - ssm:SendCommand
+                - ssm:CancelCommand
+                - ssm:GetCommandInvocation
+                - ssm:ListDocumentVersions
+                - ssm:ListDocuments
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ssmmessages:CreateControlChannel
+                - ssmmessages:CreateDataChannel
+                - ssmmessages:OpenControlChannel
+                - ssmmessages:OpenDataChannel
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ec2messages:AcknowledgeMessage
+                - ec2messages:DeleteMessage
+                - ec2messages:FailMessage
+                - ec2messages:GetEndpoint
+                - ec2messages:GetMessages
+                - ec2messages:SendReply
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ds:CreateComputer
+                - ds:DescribeDirectories
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+                - logs:PutLogEvents
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - s3:GetBucketLocation
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetEncryptionConfiguration
+                - s3:AbortMultipartUpload
+                - s3:ListMultipartUploadParts
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  iam:PassedToService: "ec2.amazonaws.com"  
+
+  # EKS Security Groups
+  ClusterControlPlaneSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Cluster communication with worker nodes'
+      VpcId: !Ref ExistingVpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-control-plane-sg'
+
+  NodeSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Security group for all nodes in the cluster'
+      VpcId: !Ref ExistingVpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-node-sg'
+        - Key: 'kubernetes.io/cluster/${ClusterName}'
+          Value: 'owned'
+
+  # EKS Security Group Rules
+  NodeSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow node to communicate with each other'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: '-1'
+      FromPort: 0
+      ToPort: 65535
+
+  NodeSecurityGroupFromControlPlaneIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow worker Kubelets and pods to receive communication from the cluster control plane'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 1025
+      ToPort: 65535
+
+  ControlPlaneEgressToNodeSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: 'Allow the cluster control plane to communicate with worker Kubelet and pods'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      DestinationSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 1025
+      ToPort: 65535
+
+  NodeSecurityGroupFromControlPlaneOn443Ingress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow pods running extension API servers on port 443 to receive communication from cluster control plane'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
+  ControlPlaneEgressToNodeSecurityGroupOn443:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: 'Allow the cluster control plane to communicate with pods running extension API servers on port 443'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      DestinationSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
+  ClusterControlPlaneSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow pods to communicate with the cluster API Server'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      SourceSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
+  # EKS Node Group
+  NodeGroup:
+    Type: 'AWS::EKS::Nodegroup'
+    DependsOn:
+      - EKSCluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      NodegroupName: !Sub '${ClusterName}-node-group'
+      NodeRole: !GetAtt NodeGroupRole.Arn
+      Subnets: !Ref SubnetIds
+      InstanceTypes:
+        - !Ref NodeInstanceType
+      DiskSize: !Ref NodeVolumeSize
+      RemoteAccess:
+        Ec2SshKey: !Ref KeyPairName
+        SourceSecurityGroups:
+          - !Ref NodeSecurityGroup
+      ScalingConfig:
+        MinSize: !Ref NodeGroupMinSize
+        MaxSize: !Ref NodeGroupMaxSize
+        DesiredSize: !Ref NodeGroupDesiredSize
+      Labels:
+        nodegroup-type: 'default'
+      Tags:
+        Name: !Sub '${ClusterName}-node-group'
+
+  # PostgreSQL Resources
+  DBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for PostgreSQL RDS'
+      SubnetIds: !Ref PrivateSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-postgres-subnet-group'
+
+  DBParameterGroup:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      Description: 'Parameter group for PostgreSQL'
+      Family: !If 
+        - IsVersion16
+        - 'postgres16'
+        - 'postgres15'
+          
+      Parameters:
+        max_connections: '100'
+        shared_preload_libraries: 'pg_stat_statements'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-postgres-param-group'
+
+  DBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Security group for PostgreSQL RDS'
+      VpcId: !Ref ExistingVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref NodeSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-postgres-sg'
+
+  PostgreSQLInstance:
+    Type: 'AWS::RDS::DBInstance'
+    DependsOn:
+      - DBSubnetGroup
+      - DBParameterGroup
+      - DBSecurityGroup
+    Properties:
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: postgres
+      EngineVersion: !Ref DBEngineVersion
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      MultiAZ: false
+      PubliclyAccessible: false
+      StorageType: gp3
+      BackupRetentionPeriod: 7
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-postgres'
+
+Outputs:
+  # EKS Outputs
+  ClusterName:
+    Description: 'The name of the EKS cluster'
+    Value: !Ref ClusterName
+  
+  ClusterEndpoint:
+    Description: 'The endpoint URL for the EKS cluster'
+    Value: !GetAtt EKSCluster.Endpoint
+  
+  NodeGroupRoleArn:
+    Description: 'ARN of the worker node IAM role'
+    Value: !GetAtt NodeGroupRole.Arn
+  
+  ClusterSecurityGroupId:
+    Description: 'Security group ID for the cluster control plane'
+    Value: !Ref ClusterControlPlaneSecurityGroup
+  
+  NodeSecurityGroupId:
+    Description: 'Security group ID for the worker nodes'
+    Value: !Ref NodeSecurityGroup
+  
+  NodeGroupName:
+    Description: 'Name of the node group'
+    Value: !Sub '${ClusterName}-nodegroup'
+  
+  # PostgreSQL Outputs
+  DBEndpoint:
+    Description: 'PostgreSQL endpoint'
+    Value: !GetAtt PostgreSQLInstance.Endpoint.Address
+  
+  DBPort:
+    Description: 'PostgreSQL port'
+    Value: !GetAtt PostgreSQLInstance.Endpoint.Port
+  
+  DBName:
+    Description: 'PostgreSQL database name'
+    Value: !Ref DBName
+  
+  DBUsername:
+    Description: 'PostgreSQL admin username'
+    Value: !Ref DBUsername
