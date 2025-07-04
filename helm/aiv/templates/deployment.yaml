@@ -38,6 +38,10 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+          {{- if .Values.command }}
+          command:
+            {{- toYaml .Values.command | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
@@ -67,6 +71,10 @@ spec:
             {{- if .Values.volumeMounts }}
             {{- include "common.tplvalues.render" ( dict "value" .Values.volumeMounts "context" $ ) | nindent 10 }}
             {{- end }}
+            {{- if .Values.persistence.enabled }}
+          - name: storage
+            mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
       volumes:
         {{- if .Values.files }}
         - name: files
@@ -80,6 +88,11 @@ spec:
             secretName: {{ include "aiv.fullname" . }}-secret-files
         {{- end }}
 
+        {{- if .Values.persistence.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "aiv.fullname" . }}-pvc
+        {{- end }}
 
       {{- with .Values.nodeSelector }}
       nodeSelector:
