@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Complete EKS infrastructure setup for fresh AWS account'
+Description: 'EKS infrastructure setup using existing VPC'
 
 Parameters:
   ClusterName:
@@ -11,10 +11,18 @@ Parameters:
     Description: 'Name of an existing EC2 KeyPair to enable SSH access'
     Type: 'AWS::EC2::KeyPair::KeyName'
   
-  VpcCidr:
+  VpcId:
     Type: String
-    Default: '10.0.0.0/16'
-    Description: 'CIDR block for VPC'
+    Description: 'VPC ID where the EKS cluster will be deployed'
+  
+  PublicSubnetIds:
+    Type: CommaDelimitedList
+    Description: 'List of public subnet IDs'
+  
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+    Description: 'List of private subnet IDs (optional)'
+    Default: ''
 
   KubernetesVersion:
     Description: 'Kubernetes version for the EKS cluster'
@@ -25,155 +33,11 @@ Parameters:
       - '1.32'
       - '1.33'
 
+Conditions:
+  # Check if private subnets are provided
+  HasPrivateSubnets: !Not [!Equals [!Join ['', !Ref PrivateSubnetIds], '']]
 
 Resources:
-
-  # VPC
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !Ref VpcCidr
-      EnableDnsHostnames: true
-      EnableDnsSupport: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-vpc'
-
-  # Internet Gateway
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-igw'
-
-  InternetGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      InternetGatewayId: !Ref InternetGateway
-      VpcId: !Ref VPC
-
-  # Public Subnets
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Sub '10.0.1.0/24'
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-public-subnet-1'
-        - Key: kubernetes.io/role/elb
-          Value: 1
-
-  PublicSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Sub '10.0.2.0/24'
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-public-subnet-2'
-        - Key: kubernetes.io/role/elb
-          Value: 1
-
-  # Private Subnets
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Sub '10.0.3.0/24'
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-private-subnet-1'
-        - Key: kubernetes.io/role/internal-elb
-          Value: 1
-
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Sub '10.0.4.0/24'
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-private-subnet-2'
-        - Key: kubernetes.io/role/internal-elb
-          Value: 1
-
-  # NAT Gateway
-  NatGateway1EIP:
-    Type: AWS::EC2::EIP
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      Domain: vpc
-
-  NatGateway1:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatGateway1EIP.AllocationId
-      SubnetId: !Ref PublicSubnet1
-
-  # Route Tables
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-public-routes'
-
-  DefaultPublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: InternetGatewayAttachment
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-
-  PublicSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnet1
-
-  PublicSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnet2
-
-  PrivateRouteTable1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub '${ClusterName}-private-routes-1'
-
-  DefaultPrivateRoute1:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1
-
-  PrivateSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      SubnetId: !Ref PrivateSubnet1
-
-  PrivateSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      SubnetId: !Ref PrivateSubnet2
-
   # EKS Cluster Service Role
   EKSClusterRole:
     Type: AWS::IAM::Role
@@ -188,13 +52,12 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
 
-
   # Security Group for EKS Cluster
   EKSClusterSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for EKS cluster
-      VpcId: !Ref VPC
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 443
@@ -215,41 +78,50 @@ Resources:
       ResourcesVpcConfig:
         SecurityGroupIds:
           - !Ref EKSClusterSecurityGroup
-        SubnetIds:
-          - !Ref PublicSubnet1
-          - !Ref PublicSubnet2
-          - !Ref PrivateSubnet1
-          - !Ref PrivateSubnet2
+        SubnetIds: !If
+          - HasPrivateSubnets
+          - !Split
+            - ','
+            - !Sub
+              - '${inner}'
+              - inner: !Join
+                - ','
+                - - !Join [',', !Ref PublicSubnetIds]
+                  - !Join [',', !Ref PrivateSubnetIds]
+          - !Ref PublicSubnetIds
         EndpointPrivateAccess: false
         EndpointPublicAccess: true
 
 Outputs:
-  VpcId:
-    Description: 'VPC ID'
-    Value: !Ref VPC
-    Export:
-      Name: !Sub '${AWS::StackName}-VPC-ID'
-
-  PublicSubnetIds:
-    Description: 'Public Subnet IDs'
-    Value: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2]]
-    Export:
-      Name: !Sub '${AWS::StackName}-PUBLIC-SUBNET-IDS'
-
-  PrivateSubnetIds:
-    Description: 'Private Subnet IDs'
-    Value: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
-    Export:
-      Name: !Sub '${AWS::StackName}-PRIVATE-SUBNET-IDS'
-
-  KeyPairName:
-    Description: 'EC2 Key Pair Name'
-    Value: !Ref KeyPairName
-    Export:
-      Name: !Sub '${AWS::StackName}-KEY-PAIR-NAME'
-
   ClusterName:
     Description: 'EKS Cluster Name'
     Value: !Ref EKSCluster
     Export:
       Name: !Sub '${AWS::StackName}-CLUSTER-NAME'
+  
+  ClusterArn:
+    Description: 'EKS Cluster ARN'
+    Value: !GetAtt EKSCluster.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CLUSTER-ARN'
+  
+  ClusterEndpoint:
+    Description: 'EKS Cluster Endpoint'
+    Value: !GetAtt EKSCluster.Endpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-CLUSTER-ENDPOINT'
+  
+  KeyPairName:
+    Description: 'EC2 Key Pair Name'
+    Value: !Ref KeyPairName
+    Export:
+      Name: !Sub '${AWS::StackName}-KEY-PAIR-NAME'
+  
+  SubnetConfiguration:
+    Description: 'Subnet configuration used'
+    Value: !If
+      - HasPrivateSubnets
+      - 'Public and Private subnets'
+      - 'Public subnets only'
+    Export:
+      Name: !Sub '${AWS::StackName}-SUBNET-CONFIG'

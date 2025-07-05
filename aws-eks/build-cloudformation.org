@@ -1,8 +1,31 @@
-* TODO Create new one keypair
+* DONE Create new one keypair
+CLOSED: [2025-07-05 Sat 17:54]
 Have to manually create the input the keypair-name
 
 * TODO Option to Setup new VPC with pub and sub netsub or input
 - Separate the vpc.yaml file
+#+begin_src compile :results silent
+STACK_NAME=${1:-"eks-vpc-stack"}
+CLUSTER_NAME=${2:-"my-eks-cluster"}
+VPC_CIDR=${3:-"10.0.0.0/16"}
+
+echo "Deploying VPC stack: $STACK_NAME"
+echo "Cluster name: $CLUSTER_NAME"
+echo "VPC CIDR: $VPC_CIDR"
+
+aws cloudformation deploy \
+  --template-file vpc.yaml \
+  --stack-name $STACK_NAME \
+  --parameter-overrides \
+    ClusterName=$CLUSTER_NAME \
+    VpcCidr=$VPC_CIDR \
+  --tags \
+    Project=EKS-Infrastructure \
+    Environment=Production \
+    ManagedBy=CloudFormation
+
+#+end_src
+
 
 * TODO Setup postgresql
 - Setup RDS.yaml file
