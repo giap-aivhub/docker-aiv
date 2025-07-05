@@ -1,0 +1,13 @@
+* TODO Create new one keypair
+Have to manually create the input the keypair-name
+
+* TODO Option to Setup new VPC with pub and sub netsub or input
+- Separate the vpc.yaml file
+
+* TODO Setup postgresql
+- Setup RDS.yaml file
+
+
+* IDEA Setup kafka
+
+* TODO Setup aiv helm chart
