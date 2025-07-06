@@ -2,7 +2,8 @@
 CLOSED: [2025-07-05 Sat 17:54]
 Have to manually create the input the keypair-name
 
-* TODO Option to Setup new VPC with pub and sub netsub or input
+* DONE Option to Setup new VPC with pub and sub netsub or input
+CLOSED: [2025-07-06 Sun 15:26]
 - Separate the vpc.yaml file
 #+begin_src compile :results silent
 STACK_NAME=${1:-"eks-vpc-stack"}
@@ -27,6 +28,75 @@ aws cloudformation deploy \
 #+end_src
 
 
+* DONE Setup eks cluster
+CLOSED: [2025-07-06 Sun 16:28]
+- Generate ssh keypair
+#+begin_src bash :results output :session "*cloudformation-output*"
+STACK_NAME=${1:-"eks-vpc-stack"}
+KEY_NAME=${2:-"eks-keypair"}
+echo "Generating SSH key pair for EKS cluster"
+aws ec2 create-key-pair \
+  --key-name $KEY_NAME \
+  --query 'KeyMaterial' \
+  --output text > eks-keypair.pem
+
+#+end_src
+
+#+RESULTS:
+: Generating SSH key pair for EKS cluster
+
+
+- Get output VPC ID and Subnet IDs
+#+begin_src bash :results output :session "*cloudformation-output*"
+STACK_NAME=${1:-"eks-vpc-stack"}
+echo "Fetching outputs for stack: $STACK_NAME"
+# Get and assignt VPC ID and Subnet IDs to variables
+output=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='VpcId' || OutputKey=='PublicSubnetIds' || OutputKey=='PrivateSubnetIds'].[OutputKey, OutputValue]" \
+  --output text | xargs -n 2 echo)
+VPC_ID=$(echo "$output" | grep 'VpcId' | awk '{print $2}')
+PUBLIC_SUBNET_IDS=$(echo "$output" | grep 'PublicSubnetIds' | awk '{print $2}')
+PRIVATE_SUBNET_IDS=$(echo "$output" | grep 'PrivateSubnetIds' | awk '{print $2}')
+echo "VPC ID: $VPC_ID"
+echo "Public Subnet IDs: $PUBLIC_SUBNET_IDS"
+echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
+
+#+end_src
+
+#+RESULTS:
+: Fetching outputs for stack: eks-vpc-stack
+: VPC ID: vpc-05a48bbc797e85b25
+: Public Subnet IDs: subnet-0b551ee2bf3a3fbc9,subnet-0b17dbcd425f4b045
+: Private Subnet IDs: subnet-08b25b2405ddd15a6,subnet-0b5720ff450a4c78e
+
+- Create eks from eks-infrastructure.yaml file
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
+STACK_NAME=${1:-"eks-cluster-stack"}
+KEY_NAME=${2:-"eks-keypair"}
+echo "Deploying EKS cluster stack: $STACK_NAME"
+aws cloudformation deploy \
+  --template-file eks-infrastructure.yaml \
+  --stack-name ${STACK_NAME}-eks1 \
+        --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    KeyPairName=$KEY_NAME \
+    VpcId=$VPC_ID \
+    PublicSubnetIds=$PUBLIC_SUBNET_IDS \
+    PrivateSubnetIds=$PRIVATE_SUBNET_IDS \
+  --tags \
+    Project=EKS-Infrastructure \
+    Environment=Production \
+    ManagedBy=CloudFormation
+
+#+end_src
+
+#+RESULTS:
+: 434e2cb8-f78f-4e74-8574-543f2f7ab89d
+
+
+
+
 * TODO Setup postgresql
 - Setup RDS.yaml file
 
@@ -34,3 +104,18 @@ aws cloudformation deploy \
 * IDEA Setup kafka
 
 * TODO Setup aiv helm chart
+
+* Delete eks cluster
+#+begin_src bash :results output :session "*cloudformation-output*"
+STACK_NAME=${1:-"eks-cluster-stack"}
+echo "Deleting EKS cluster stack: $STACK_NAME"
+aws cloudformation delete-stack \
+  --stack-name ${STACK_NAME}-eks
+aws cloudformation wait stack-delete-complete \
+        --stack-name ${STACK_NAME}-eks
+echo "EKS cluster stack deleted: $STACK_NAME"
+#+end_src
+
+#+RESULTS:
+: Deleting EKS cluster stack: eks-cluster-stack
+: EKS cluster stack deleted: eks-cluster-stack

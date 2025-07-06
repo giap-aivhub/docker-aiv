@@ -6,19 +6,19 @@ Parameters:
     Type: String
     Default: 'my-eks-cluster'
     Description: 'Name of the EKS cluster'
-  
+
   KeyPairName:
     Description: 'Name of an existing EC2 KeyPair to enable SSH access'
     Type: 'AWS::EC2::KeyPair::KeyName'
-  
+
   VpcId:
     Type: String
     Description: 'VPC ID where the EKS cluster will be deployed'
-  
+
   PublicSubnetIds:
     Type: CommaDelimitedList
     Description: 'List of public subnet IDs'
-  
+
   PrivateSubnetIds:
     Type: CommaDelimitedList
     Description: 'List of private subnet IDs (optional)'
@@ -32,6 +32,46 @@ Parameters:
       - '1.31'
       - '1.32'
       - '1.33'
+
+  NodeInstanceType:
+    Description: 'EC2 instance type for worker nodes'
+    Type: String
+    Default: 't3.medium'
+    AllowedValues:
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+
+  NodeVolumeSize:
+    Description: 'Worker node volume size in GB'
+    Type: Number
+    Default: 20
+  
+  NodeGroupMinSize:
+    Description: 'Minimum number of worker nodes'
+    Type: Number
+    Default: 2
+  
+  NodeGroupMaxSize:
+    Description: 'Maximum number of worker nodes'
+    Type: Number
+    Default: 3
+  
+  NodeGroupDesiredSize:
+    Description: 'Desired number of worker nodes'
+    Type: Number
+    Default: 2
+
+  NodeGroupDesiredSize:
+    Description: 'Desired number of worker nodes'
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 10
 
 Conditions:
   # Check if private subnets are provided
@@ -52,21 +92,218 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
 
-  # Security Group for EKS Cluster
-  EKSClusterSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  # Node Group IAM Role
+  NodeGroupRole:
+    Type: AWS::IAM::Role
     Properties:
-      GroupDescription: Security group for EKS cluster
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-          Description: HTTPS access to EKS API
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Path: '/'
+      Policies:
+      - PolicyName: 'CustomNodePermissions'
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:DescribeInstanceStatus
+                - ec2:DescribeTags
+                - ec2:DescribeVolumes
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:DescribeAlarms
+                - cloudwatch:DescribeAlarmsForMetric
+                - cloudwatch:GetDashboard
+                - cloudwatch:ListMetrics
+                - cloudwatch:GetMetricData
+                - cloudwatch:ListDashboards
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - logs:GetLogEvents
+                - logs:FilterLogEvents
+              Resource: "arn:aws:logs:*:*:*"
+            - Effect: Allow
+              Action:
+                - ssm:DescribeAssociation
+                - ssm:GetDeployablePatchSnapshotForInstance
+                - ssm:GetDocument
+                - ssm:DescribeDocument
+                - ssm:GetManifest
+                - ssm:GetParameters
+                - ssm:ListAssociations
+                - ssm:ListInstanceAssociations
+                - ssm:PutInventory
+                - ssm:PutComplianceItems
+                - ssm:PutConfigurePackageResult
+                - ssm:UpdateAssociationStatus
+                - ssm:UpdateInstanceAssociationStatus
+                - ssm:UpdateInstanceInformation
+                - ssm:DescribeInstanceInformation
+                - ssm:GetParameter
+                - ssm:PutParameter
+                - ssm:StartAutomationExecution
+                - ssm:DescribeAutomationExecutions
+                - ssm:ListCommands
+                - ssm:ListCommandInvocations
+                - ssm:SendCommand
+                - ssm:CancelCommand
+                - ssm:GetCommandInvocation
+                - ssm:ListDocumentVersions
+                - ssm:ListDocuments
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ssmmessages:CreateControlChannel
+                - ssmmessages:CreateDataChannel
+                - ssmmessages:OpenControlChannel
+                - ssmmessages:OpenDataChannel
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ec2messages:AcknowledgeMessage
+                - ec2messages:DeleteMessage
+                - ec2messages:FailMessage
+                - ec2messages:GetEndpoint
+                - ec2messages:GetMessages
+                - ec2messages:SendReply
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - ds:CreateComputer
+                - ds:DescribeDirectories
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+                - logs:PutLogEvents
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - s3:GetBucketLocation
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetEncryptionConfiguration
+                - s3:AbortMultipartUpload
+                - s3:ListMultipartUploadParts
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  iam:PassedToService: "ec2.amazonaws.com"  
       Tags:
         - Key: Name
-          Value: !Sub '${ClusterName}-cluster-sg'
+          Value: !Sub '${ClusterName}-node-group-role'
+
+  # Security Group
+
+  ClusterControlPlaneSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Cluster communication with worker nodes'
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-control-plane-sg'
+
+
+  NodeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EKS node group
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-node-group-sg'
+        - Key: 'kubernetes.io/cluster/${ClusterName}'
+          Value: 'owned'
+
+
+  # EKS Security Group Rules
+  NodeSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow node to communicate with each other'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: '-1'
+      FromPort: 0
+      ToPort: 65535
+
+  NodeSecurityGroupFromControlPlaneIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow worker Kubelets and pods to receive communication from the cluster control plane'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 1025
+      ToPort: 65535
+
+
+  NodeSecurityGroupFromControlPlaneOn443Ingress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow pods running extension API servers on port 443 to receive communication from cluster control plane'
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
+  ControlPlaneEgressToNodeSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: 'Allow the cluster control plane to communicate with worker Kubelet and pods'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      DestinationSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 1025
+      ToPort: 65535
+
+  ControlPlaneEgressToNodeSecurityGroupOn443:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: 'Allow the cluster control plane to communicate with pods running extension API servers on port 443'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      DestinationSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
+  ClusterControlPlaneSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: 'Allow pods to communicate with the cluster API Server'
+      GroupId: !Ref ClusterControlPlaneSecurityGroup
+      SourceSecurityGroupId: !Ref NodeSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 443
+      ToPort: 443
+
 
   # EKS Cluster
   EKSCluster:
@@ -77,7 +314,7 @@ Resources:
       RoleArn: !GetAtt EKSClusterRole.Arn
       ResourcesVpcConfig:
         SecurityGroupIds:
-          - !Ref EKSClusterSecurityGroup
+          - !Ref ClusterControlPlaneSecurityGroup
         SubnetIds: !If
           - HasPrivateSubnets
           - !Split
@@ -92,31 +329,61 @@ Resources:
         EndpointPrivateAccess: false
         EndpointPublicAccess: true
 
+  # EKS Node Group
+  NodeGroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn: EKSCluster
+    Properties:
+      ClusterName: !Ref EKSCluster
+      NodegroupName: !Sub '${ClusterName}-node-group'
+      NodeRole: !GetAtt NodeGroupRole.Arn
+      Subnets: !If
+        - HasPrivateSubnets
+        - !Ref PrivateSubnetIds
+        - !Ref PublicSubnetIds
+      InstanceTypes:
+        - !Ref NodeInstanceType
+      ScalingConfig:
+        MinSize: !Ref NodeGroupMinSize
+        MaxSize: !Ref NodeGroupMaxSize
+        DesiredSize: !Ref NodeGroupDesiredSize
+      DiskSize: !Ref NodeVolumeSize
+      RemoteAccess:
+        Ec2SshKey: !Ref KeyPairName
+        SourceSecurityGroups:
+          - !Ref NodeSecurityGroup
+      UpdateConfig:
+        MaxUnavailable: 1
+      Tags:
+        Name: !Sub '${ClusterName}-node-group'
+        Environment: !Ref ClusterName
+
+
 Outputs:
   ClusterName:
     Description: 'EKS Cluster Name'
     Value: !Ref EKSCluster
     Export:
       Name: !Sub '${AWS::StackName}-CLUSTER-NAME'
-  
+
   ClusterArn:
     Description: 'EKS Cluster ARN'
     Value: !GetAtt EKSCluster.Arn
     Export:
       Name: !Sub '${AWS::StackName}-CLUSTER-ARN'
-  
+
   ClusterEndpoint:
     Description: 'EKS Cluster Endpoint'
     Value: !GetAtt EKSCluster.Endpoint
     Export:
       Name: !Sub '${AWS::StackName}-CLUSTER-ENDPOINT'
-  
+
   KeyPairName:
     Description: 'EC2 Key Pair Name'
     Value: !Ref KeyPairName
     Export:
       Name: !Sub '${AWS::StackName}-KEY-PAIR-NAME'
-  
+
   SubnetConfiguration:
     Description: 'Subnet configuration used'
     Value: !If
@@ -125,3 +392,21 @@ Outputs:
       - 'Public subnets only'
     Export:
       Name: !Sub '${AWS::StackName}-SUBNET-CONFIG'
+
+  NodeGroupName:
+    Description: 'EKS Node Group Name'
+    Value: !Ref NodeGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-NODE-GROUP-NAME'
+  
+  NodeGroupRoleArn:
+    Description: 'Node Group IAM Role ARN'
+    Value: !GetAtt NodeGroupRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-NODE-GROUP-ROLE-ARN'
+  
+  NodeGroupSecurityGroupId:
+    Description: 'Node Group Security Group ID'
+    Value: !Ref NodeSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-NODE-GROUP-SG-ID'
