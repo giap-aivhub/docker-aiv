@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS PostgreSQL instance with best practices for security and performance'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: 'Environment name'
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC ID where RDS will be deployed'
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: 'List of private subnet IDs for RDS subnet group'
+
+  DatabaseName:
+    Type: String
+    Default: 'appdb'
+    Description: 'Initial database name'
+    MinLength: 1
+    MaxLength: 64
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  DatabaseUsername:
+    Type: String
+    Default: 'dbadmin'
+    Description: 'Database master username'
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    Description: 'Database master password'
+    MinLength: 8
+    MaxLength: 128
+    AllowedPattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$'
+
+  DBInstanceClass:
+    Type: String
+    Default: 'db.t3.micro'
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+      - db.r5.large
+      - db.r5.xlarge
+    Description: 'RDS instance class'
+
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+    Description: 'Initial allocated storage in GB'
+
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    MinValue: 0
+    MaxValue: 35
+    Description: 'Backup retention period in days'
+
+  MultiAZ:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: 'Enable Multi-AZ deployment'
+
+Mappings:
+  EnvironmentMap:
+    dev:
+      DeletionProtection: false
+      EnablePerformanceInsights: false
+      MonitoringInterval: 0
+    staging:
+      DeletionProtection: false
+      EnablePerformanceInsights: true
+      MonitoringInterval: 60
+    prod:
+      DeletionProtection: true
+      EnablePerformanceInsights: true
+      MonitoringInterval: 60
+
+Resources:
+  # DB Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub '${AWS::StackName}-db-subnet-group'
+      DBSubnetGroupDescription: 'Subnet group for RDS database'
+      SubnetIds: !Ref PrivateSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-db-subnet-group'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Security Group for RDS
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-rds-sg'
+      GroupDescription: 'Security group for RDS database'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+          Description: 'PostgreSQL access from application tier'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'All outbound traffic'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-rds-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Application Security Group (referenced by RDS)
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-app-sg'
+      GroupDescription: 'Security group for application servers'
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-app-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DB Parameter Group
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      DBParameterGroupName: !Sub '${AWS::StackName}-postgres-params'
+      Description: 'Custom parameter group for PostgreSQL'
+      Family: 'postgres17'
+      Parameters:
+        shared_preload_libraries: 'pg_stat_statements'
+        log_statement: 'all'
+        log_min_duration_statement: 1000
+        log_checkpoints: 1
+        log_connections: 1
+        log_disconnections: 1
+        log_lock_waits: 1
+        log_temp_files: 0
+        track_activity_query_size: 2048
+        pg_stat_statements.track: 'all'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-postgres-params'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Enhanced Monitoring Role
+  EnhancedMonitoringRole:
+    Type: AWS::IAM::Role
+    Condition: EnableEnhancedMonitoring
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-rds-enhanced-monitoring-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: monitoring.rds.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole'
+      Path: /
+
+  # RDS Instance
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${AWS::StackName}-postgres'
+      DBName: !Ref DatabaseName
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: 'gp2'
+      StorageEncrypted: true
+
+      Engine: 'postgres'
+      EngineVersion: '17.5'
+
+      MasterUsername: !Ref DatabaseUsername
+      MasterUserPassword: !Ref DatabasePassword
+
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+
+      MultiAZ: !Ref MultiAZ
+      PubliclyAccessible: false
+
+      DeletionProtection: !FindInMap [EnvironmentMap, !Ref Environment, DeletionProtection]
+      EnablePerformanceInsights: !FindInMap [EnvironmentMap, !Ref Environment, EnablePerformanceInsights]
+      PerformanceInsightsRetentionPeriod: !If
+        - EnablePerformanceInsights
+        - 7
+        - !Ref 'AWS::NoValue'
+
+      MonitoringInterval: !FindInMap [EnvironmentMap, !Ref Environment, MonitoringInterval]
+      MonitoringRoleArn: !If
+        - EnableEnhancedMonitoring
+        - !GetAtt EnhancedMonitoringRole.Arn
+        - !Ref 'AWS::NoValue'
+
+      EnableCloudwatchLogsExports:
+        - postgresql
+
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-postgres'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Backup
+          Value: 'required'
+
+Conditions:
+  EnableEnhancedMonitoring: !Not [!Equals [!FindInMap [EnvironmentMap, !Ref Environment, MonitoringInterval], 0]]
+  EnablePerformanceInsights: !Equals [!FindInMap [EnvironmentMap, !Ref Environment, EnablePerformanceInsights], true]
+
+Outputs:
+  DatabaseEndpoint:
+    Description: 'RDS instance endpoint'
+    Value: !GetAtt DatabaseInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseEndpoint'
+
+  DatabasePort:
+    Description: 'RDS instance port'
+    Value: !GetAtt DatabaseInstance.Endpoint.Port
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabasePort'
+
+  DatabaseName:
+    Description: 'Database name'
+    Value: !Ref DatabaseName
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseName'
+
+  DatabaseUsername:
+    Description: 'Database master username'
+    Value: !Ref DatabaseUsername
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseUsername'
+
+  DatabaseSecurityGroupId:
+    Description: 'Security group ID for RDS'
+    Value: !Ref DatabaseSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseSecurityGroupId'
+
+  ApplicationSecurityGroupId:
+    Description: 'Security group ID for applications'
+    Value: !Ref ApplicationSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationSecurityGroupId'

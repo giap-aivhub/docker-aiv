@@ -5,7 +5,8 @@ Have to manually create the input the keypair-name
 * DONE Option to Setup new VPC with pub and sub netsub or input
 CLOSED: [2025-07-06 Sun 15:26]
 - Separate the vpc.yaml file
-#+begin_src compile :results silent
+
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
 STACK_NAME=${1:-"eks-vpc-stack"}
 CLUSTER_NAME=${2:-"my-eks-cluster"}
 VPC_CIDR=${3:-"10.0.0.0/16"}
@@ -27,6 +28,14 @@ aws cloudformation deploy \
 
 #+end_src
 
+#+RESULTS:
+: Deploying VPC stack: eks-vpc-stack
+: Cluster name: my-eks-cluster
+: VPC CIDR: 10.0.0.0/16
+: Waiting for changeset to be created..
+: Waiting for stack create/update to complete
+: Successfully created/updated stack - eks-vpc-stack
+
 
 * DONE Setup eks cluster
 CLOSED: [2025-07-06 Sun 16:28]
@@ -47,7 +56,7 @@ aws ec2 create-key-pair \
 
 
 - Get output VPC ID and Subnet IDs
-#+begin_src bash :results output :session "*cloudformation-output*"
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
 STACK_NAME=${1:-"eks-vpc-stack"}
 echo "Fetching outputs for stack: $STACK_NAME"
 # Get and assignt VPC ID and Subnet IDs to variables
@@ -66,9 +75,9 @@ echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
 
 #+RESULTS:
 : Fetching outputs for stack: eks-vpc-stack
-: VPC ID: vpc-05a48bbc797e85b25
-: Public Subnet IDs: subnet-0b551ee2bf3a3fbc9,subnet-0b17dbcd425f4b045
-: Private Subnet IDs: subnet-08b25b2405ddd15a6,subnet-0b5720ff450a4c78e
+: VPC ID: vpc-0d2341494767c5d33
+: Public Subnet IDs: subnet-0039188689afb050f,subnet-0d7f1bf9b3f140571
+: Private Subnet IDs: subnet-0754754552012df00,subnet-0c3bb80ffd8861f2d
 
 - Create eks from eks-infrastructure.yaml file
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
@@ -92,13 +101,45 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: 434e2cb8-f78f-4e74-8574-543f2f7ab89d
+: Deploying EKS cluster stack: eks-cluster-stack
+: Waiting for changeset to be created..
+: Waiting for stack create/update to complete
+: Successfully created/updated stack - eks-cluster-stack-eks1
 
 
 
 
-* TODO Setup postgresql
+* DONE Setup postgresql
+CLOSED: [2025-07-07 Mon 16:43]
 - Setup RDS.yaml file
+
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
+STACK_NAME=${1:-"eks-cluster-stack"}
+echo "Deploying RDS stack: $STACK_NAME-rds"
+aws cloudformation deploy \
+  --template-file rds.yaml \
+  --stack-name ${STACK_NAME}-rds \
+  --parameter-overrides \
+    Environment=dev \
+    VpcId=$VPC_ID \
+    PrivateSubnetIds=$PRIVATE_SUBNET_IDS \
+    DatabaseName=aivdb \
+    DatabaseUser=admin \
+    DatabasePassword=pasAswordA12 \
+    DBInstanceClass=db.t3.micro \
+    AllocatedStorage=20 \
+  --tags \
+    Project=EKS-Infrastructure \
+    Environment=Dev \
+    ManagedBy=CloudFormation
+#+end_src
+
+#+RESULTS:
+: Deploying RDS stack: eks-cluster-stack-rds
+: Waiting for changeset to be created..
+: Waiting for stack create/update to complete
+: Successfully created/updated stack - eks-cluster-stack-rds
+
 
 
 * IDEA Setup kafka
