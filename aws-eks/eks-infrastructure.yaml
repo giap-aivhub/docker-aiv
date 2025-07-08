@@ -221,7 +221,7 @@ Resources:
   # Security Group
 
   ClusterControlPlaneSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: 'Cluster communication with worker nodes'
       VpcId: !Ref VpcId

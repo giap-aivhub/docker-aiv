@@ -147,6 +147,9 @@ aws cloudformation deploy \
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
 : 
+: 
+: 
+: 
 : Successfully created/updated stack - aiv-vpc-rds
 
 - Get RDS output
@@ -164,6 +167,74 @@ echo "DB Endpoint: $DB_ENDPOINT"
 #+RESULTS:
 : Fetching RDS outputs for stack: aiv-vpc-rds
 : DB Endpoint: aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
+
+
+- Add security group rule to allow access to RDS
+#+begin_src bash :results output :session "*cloudformation-output*"
+echo "Adding security group rule to allow access to RDS"
+NODE_GROUP_ID=$(aws cloudformation describe-stacks \
+  --stack-name ${STACK_NAME}-eks \
+  --query "Stacks[0].Outputs[?OutputKey=='NodeGroupSecurityGroupId'].[OutputValue][0]" \
+  --output text)
+RDS_SG_ID=$(aws cloudformation describe-stacks \
+  --stack-name ${STACK_NAME}-rds \
+  --query "Stacks[0].Outputs[?OutputKey=='DatabaseSecurityGroupId'].[OutputValue][0]" \
+  --output text)
+
+aws ec2 authorize-security-group-ingress \
+        --group-id $RDS_SG_ID \
+        --protocol tcp \
+        --port 5432 \
+        --source-group $NODE_GROUP_ID
+
+echo "Security group rule added to allow access from node group to RDS."
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Adding security group rule to allow access to RDS
+{
+    "Return": true,
+    "SecurityGroupRules": [
+        {
+            "SecurityGroupRuleId": "sgr-0b300bd4711d3d264",
+            "GroupId": "sg-04bd944f310060f75",
+            "GroupOwnerId": "417447013272",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 5432,
+            "ToPort": 5432,
+            "ReferencedGroupInfo": {
+                "GroupId": "sg-0ae4260ef4e14a31a",
+                "UserId": "417447013272"
+            },
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-southeast-1:417447013272:security-group-rule/sgr-0b300bd4711d3d264"
+        }
+    ]
+}
+Security group rule added to allow access from node group to RDS.
+#+end_example
+
+
+
+- Test RDS connection
+#+begin_src bash :results output :session "*cloudformation-output*"
+echo "Testing RDS connection to $DB_ENDPOINT"
+
+PGPASSWORD=$DB_PASSWORD psql -h $DB_ENDPOINT -U $DB_USERNAME -d $DB_NAME -c "SELECT 1;"
+if [ $? -eq 0 ]; then
+  echo "RDS connection successful."
+else
+  echo "RDS connection failed."
+fi
+#+end_src
+
+
+#+RESULTS:
+: Testing RDS connection to aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
+: psql: error: connection to server at "aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com" (10.0.4.183), port 5432 failed: No route to host
+: 	Is the server running on that host and accepting TCP/IP connections?
+: RDS connection failed.
 
 
 * IDEA Setup kafka
@@ -186,6 +257,17 @@ fullnameOverride: aiv
 fullnameOverride: "aiv"
 
 replicaCount: 2
+
+# Set service is ALB aws
+service:
+  type: LoadBalancer
+  port: 80
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb" # Use NLB for better performance
+    service.beta.kubernetes.io/aws-load-balancer-internal: "false" # Set to true for internal access only
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:ap-southeast-1:417447013272:certificate/your-certificate-id" # Replace with your ACM certificate ARN
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
 
 volumeMounts:
 - mountPath: /var/lib/aiv/repository/econfig/application.yml
@@ -339,7 +421,76 @@ EOF
 #+RESULTS:
 
 - Deploy helm chart
-helm at: https://github.com/
+#+begin_src bash :results output :session "*cloudformation-output*"
+helm upgrade aiv ../../helm/helm/aiv/ -f values.aiv.yaml
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Release "aiv" has been upgraded. Happy Helming!
+NAME: aiv
+LAST DEPLOYED: Tue Jul  8 14:11:17 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 5
+NOTES:
+1. Get the application URL by running these commands:
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace default svc -w aiv'
+  export SERVICE_IP=$(kubectl get svc --namespace default aiv --template "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}")
+  echo http://$SERVICE_IP:80
+#+end_example
+
+* DONE ALB ingress
+CLOSED: [2025-07-08 Tue 16:09]
+
+* Setup ESB Storage Volume
+;; https://stackoverflow.com/questions/75758115/persistentvolumeclaim-is-stuck-waiting-for-a-volume-to-be-created-either-by-ex
+
+#+name: install eksctl
+#+begin_src compile :results silent
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+#+end_src
+
+- Enable IAM OIDC provider
+#+begin_src compile :results output :session "*cloudformation-output*"
+eksctl utils associate-iam-oidc-provider --region=ap-southeast-1 --cluster=my-eks-cluster --approve
+#+end_src
+
+#+RESULTS:
+- Create role
+#+begin_src compile :results output :session "*cloudformation-output*"
+eksctl create iamserviceaccount \
+  --region ap-southeast-1 \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster my-eks-cluster \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve \
+  --role-only \
+  --role-name AmazonEKS_EBS_CSI_DriverRole
+#+end_src
+#+begin_src compile :results silent
+aws iam create-role \
+      --role-name AmazonEKS_EBS_CSI_DriverRole \
+      --assume-role-policy-document file://"aws-ebs-csi-driver-trust-policy.json"
+#+end_src
+
+#+begin_src compile :results silent
+aws iam attach-role-policy \
+      --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+      --role-name AmazonEKS_EBS_CSI_DriverRole
+#+end_src
+
+#+RESULTS:
+
+- Add EBS CSI addons
+#+begin_src compile :results output :session "*cloudformation-output*"
+eksctl create addon --name aws-ebs-csi-driver --cluster my-eks-cluster --service-account-role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKS_EBS_CSI_DriverRole --force
+#+end_src
+
+#+RESULTS:
 
 
 * Delete eks cluster
