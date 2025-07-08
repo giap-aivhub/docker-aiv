@@ -1,14 +1,34 @@
 * DONE Create new one keypair
 CLOSED: [2025-07-05 Sat 17:54]
 Have to manually create the input the keypair-name
+- Generate a new keypair if not exists
+#+begin_src bash :results output :session "*cloudformation-output*"
+KEY_NAME=${1:-"eks-keypair"}
+echo "Checking if key pair $KEY_NAME exists"
+if aws ec2 describe-key-pairs --key-name "$KEY_NAME" >/dev/null 2>&1; then
+  echo "Key pair $KEY_NAME already exists."
+else
+  echo "Creating new key pair: $KEY_NAME"
+  aws ec2 create-key-pair \
+    --key-name "$KEY_NAME" \
+    --query 'KeyMaterial' \
+    --output text > "${KEY_NAME}.pem"
+  chmod 400 "${KEY_NAME}.pem"
+  echo "Key pair $KEY_NAME created and saved to ${KEY_NAME}.pem"
+fi
+#+end_src
+
+#+RESULTS:
+: Checking if key pair eks-keypair exists
+: Key pair eks-keypair already exists.
 
 * DONE Option to Setup new VPC with pub and sub netsub or input
 CLOSED: [2025-07-06 Sun 15:26]
 - Separate the vpc.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"eks-vpc-stack"}
-CLUSTER_NAME=${2:-"my-eks-cluster"}
+STACK_NAME=${1:-"aiv-vpc"}
+CLUSTER_NAME=${2:-"aiv-cluster"}
 VPC_CIDR=${3:-"10.0.0.0/16"}
 
 echo "Deploying VPC stack: $STACK_NAME"
@@ -29,35 +49,21 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying VPC stack: eks-vpc-stack
-: Cluster name: my-eks-cluster
+: Deploying VPC stack: aiv-vpc
+: Cluster name: aiv-cluster
 : VPC CIDR: 10.0.0.0/16
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
-: Successfully created/updated stack - eks-vpc-stack
+: Successfully created/updated stack - aiv-vpc
 
 
 * DONE Setup eks cluster
 CLOSED: [2025-07-06 Sun 16:28]
-- Generate ssh keypair
-#+begin_src bash :results output :session "*cloudformation-output*"
-STACK_NAME=${1:-"eks-vpc-stack"}
-KEY_NAME=${2:-"eks-keypair"}
-echo "Generating SSH key pair for EKS cluster"
-aws ec2 create-key-pair \
-  --key-name $KEY_NAME \
-  --query 'KeyMaterial' \
-  --output text > eks-keypair.pem
-
-#+end_src
-
-#+RESULTS:
-: Generating SSH key pair for EKS cluster
 
 
 - Get output VPC ID and Subnet IDs
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"eks-vpc-stack"}
+STACK_NAME=${1:-"aiv-vpc"}
 echo "Fetching outputs for stack: $STACK_NAME"
 # Get and assignt VPC ID and Subnet IDs to variables
 output=$(aws cloudformation describe-stacks \
@@ -74,19 +80,19 @@ echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
 #+end_src
 
 #+RESULTS:
-: Fetching outputs for stack: eks-vpc-stack
-: VPC ID: vpc-0d2341494767c5d33
-: Public Subnet IDs: subnet-0039188689afb050f,subnet-0d7f1bf9b3f140571
-: Private Subnet IDs: subnet-0754754552012df00,subnet-0c3bb80ffd8861f2d
+: Fetching outputs for stack: aiv-vpc
+: VPC ID: vpc-04de81e81693c2f94
+: Public Subnet IDs: subnet-0249845c31945bbab,subnet-06aaf15653e9dc774
+: Private Subnet IDs: subnet-0466b3c2540f298ae,subnet-02fc147bb6cd31534
 
 - Create eks from eks-infrastructure.yaml file
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"eks-cluster-stack"}
+STACK_NAME=${1:-"aiv-vpc"}
 KEY_NAME=${2:-"eks-keypair"}
 echo "Deploying EKS cluster stack: $STACK_NAME"
 aws cloudformation deploy \
   --template-file eks-infrastructure.yaml \
-  --stack-name ${STACK_NAME}-eks1 \
+  --stack-name ${STACK_NAME}-eks \
         --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     KeyPairName=$KEY_NAME \
@@ -101,12 +107,11 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying EKS cluster stack: eks-cluster-stack
+: Deploying EKS cluster stack: aiv-vpc
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
-: Successfully created/updated stack - eks-cluster-stack-eks1
-
-
+: 
+: Successfully created/updated stack - aiv-vpc-eks
 
 
 * DONE Setup postgresql
@@ -114,7 +119,10 @@ CLOSED: [2025-07-07 Mon 16:43]
 - Setup RDS.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"eks-cluster-stack"}
+STACK_NAME=${1:-"aiv-vpc"}
+export DB_USERNAME=${2:-"admin"}
+export DB_PASSWORD=${3:-"pasAswordA12"}
+export DB_NAME=${4:-"aivdb"}
 echo "Deploying RDS stack: $STACK_NAME-rds"
 aws cloudformation deploy \
   --template-file rds.yaml \
@@ -123,9 +131,9 @@ aws cloudformation deploy \
     Environment=dev \
     VpcId=$VPC_ID \
     PrivateSubnetIds=$PRIVATE_SUBNET_IDS \
-    DatabaseName=aivdb \
-    DatabaseUser=admin \
-    DatabasePassword=pasAswordA12 \
+    DatabaseName=$DB_NAME \
+    DatabaseUser=$DB_USERNAME \
+    DatabasePassword=$DB_PASSWORD \
     DBInstanceClass=db.t3.micro \
     AllocatedStorage=20 \
   --tags \
@@ -135,16 +143,204 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying RDS stack: eks-cluster-stack-rds
+: Deploying RDS stack: aiv-vpc-rds
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
-: Successfully created/updated stack - eks-cluster-stack-rds
+: 
+: Successfully created/updated stack - aiv-vpc-rds
 
+- Get RDS output
+#+begin_src bash :results output :session "*cloudformation-output*"
+STACK_NAME=${1:-"aiv-vpc"}
+echo "Fetching RDS outputs for stack: $STACK_NAME-rds"
+export DB_ENDPOINT=$(aws cloudformation describe-stacks \
+  --stack-name ${STACK_NAME}-rds \
+  --query "Stacks[0].Outputs[?OutputKey=='DatabaseEndpoint'].[OutputValue][0][0]" \
+  --output text)
+echo "DB Endpoint: $DB_ENDPOINT"
+
+#+end_src
+
+#+RESULTS:
+: Fetching RDS outputs for stack: aiv-vpc-rds
+: DB Endpoint: aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
 
 
 * IDEA Setup kafka
 
 * TODO Setup aiv helm chart
+- Connect to eks cluster
+#+begin_src compile :results output
+CLUSTER_NAME=${1:-"my-eks-cluster"}
+echo "Setting up kubectl context for EKS cluster"
+aws eks update-kubeconfig \
+  --name $CLUSTER_NAME
+echo "Kubectl context set for cluster: $CLUSTER_NAME"
+#+end_src
+
+- Build helm chart values.yaml file
+
+#+begin_src bash :results output :session "*cloudformation-output*"
+cat > values.aiv.yaml <<EOF
+fullnameOverride: aiv
+fullnameOverride: "aiv"
+
+replicaCount: 2
+
+volumeMounts:
+- mountPath: /var/lib/aiv/repository/econfig/application.yml
+  subPath: application.yml
+  name: files
+
+- mountPath: /var/lib/aiv/repository/econfig/logback.xml
+  subPath: logback.xml
+  name: files
+
+files:
+  application.yml: |
+    server:
+      compression:
+        enabled: true
+        mime-types: application/json, text/html, text/xml, text/plain,text/css, text/javascript, application/javascript, application/octet-stream
+        min-response-size: 1024
+      servlet:
+        context-path: /aiv
+      port: 80
+    spring:
+      autoconfigure:
+        exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      resources:
+        static-locations: classpath:/static/,file:///var/lib/aiv/repository/images/
+      jackson:
+        serialization:
+          WRITE_DATES_AS_TIMESTAMPS: false
+        time-zone: UTC
+      datasource:
+        url: jdbc:postgresql://${DB_ENDPOINT}:5432/${DB_NAME} # database for aiv schema
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        driverClassName: org.postgresql.Driver
+      datasource1:
+        url: jdbc:postgresql://${DB_ENDPOINT}:5432/${DB_NAME}?currentSchema=security # database for security schema
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        driverClassName: org.postgresql.Driver
+      mvc:
+        pathmatch:
+          matching-strategy: ANT_PATH_MATCHER
+      jpa:
+        hibernate:
+          ddl-auto: update
+      liquibase:
+       aiv:
+         enabled: true
+         change-log: classpath:db/changelog/db.changelog-aiv.sql
+       security:
+         enabled: true
+         change-log: classpath:db/changelog/db.changelog-security.sql
+      kafka:
+        bootstrap-servers: kafka:9092
+        consumer:
+          group-id: task-consumer-group
+          auto-offset-reset: earliest
+          key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+          value-deserializer: com.aiv.cluster.MapDeserializer
+        producer:
+          key-serializer: org.apache.kafka.common.serialization.StringSerializer
+          value-serializer: com.aiv.cluster.MapSerializer
+
+    #For JNDI Datasources
+    datasources:
+      dslist[0]: '{"jndi-name":"jdbc/ActiveIDB","driver-class-name":"org.postgresql.Driver","url":"jdbc:postgresql://${DB_ENDPOINT}:5432/${DB_NAME}","username":"${DB_USERNAME}","password":"${DB_PASSWORD}"}'
+
+    #Application some default values
+    # slatKey -> For stoken decryption SecretKey
+    # ivspec -> For stoken Iv Spec Key
+    # securityClass -> which security class we need to use for authentication and user/roles details
+    # isJira -> Are we using Jira authentication or not
+    app:
+      slatKey: 0123456789abcdef
+      ivspec: fedcba9876543210
+      imgLocation: /var/lib/aiv/repository/images/
+      appLocation: /var/lib/aiv/repository/APP/
+      repositoryLocation: /var/lib/aiv/repository
+      logDir: /var/log/aiv
+      deliveryLocation: /var/lib/aiv/repository/delivery
+      database: postgresql
+      securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
+      isJira: false
+      noofreports: 10
+      task:
+        kafka:
+          retention.ms: 60000
+          topic:
+            topicName: task-topic       # Name of the Kafka topic
+            partitions: 2         # Number of partitions for the topic
+            replication-factor:  1
+        manager:
+          mode: single  # use "single" if you want to disable Kafka or multi
+
+    #While creating Embed token
+    # ekey -> Generating Embed Encrypted insternal token.
+    # tokenKey -> For generating Embed authentication token
+    embed:
+      ekey: ActiveInteigence
+      tokenKey: H0WWWrNDCCoVKVPXMSei9/+rDJcLbgkEOXhayw790lY=
+      iscustomtoken: false
+
+    logging:
+      level:
+        liquibase: OFF
+
+    # Token used for MicroServices Internal Authentication
+    aiv-internalToken: ActiveIntelligence
+    management.metrics.mongo.command.enabled: false
+    management.metrics.mongo.connectionpool.enabled: false
+
+  logback.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
+      <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
+      <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
+      <logger name="core" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <logger name="db" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <logger name="data" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <logger name="birt" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <logger name="rest" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <logger name="jasper" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+      <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+          <layout class="ch.qos.logback.classic.PatternLayout">
+              <Pattern>%d %p %c{1} [%t] %m%n</Pattern>
+          </layout>
+      </appender>
+      <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+      </root>
+
+    </configuration>
+
+EOF
+
+#+end_src
+
+#+RESULTS:
+
+- Deploy helm chart
+helm at: https://github.com/
+
 
 * Delete eks cluster
 #+begin_src bash :results output :session "*cloudformation-output*"
