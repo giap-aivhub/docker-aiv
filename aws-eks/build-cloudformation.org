@@ -114,12 +114,12 @@ aws cloudformation deploy \
 : Successfully created/updated stack - aiv-vpc-eks
 
 
-* DONE Setup postgresql
+* DONE Setup postgresql rds
 CLOSED: [2025-07-07 Mon 16:43]
 - Setup RDS.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"aiv-vpc"}
+export STACK_NAME=${1:-"aiv-vpc"}
 export DB_USERNAME=${2:-"admin"}
 export DB_PASSWORD=${3:-"pasAswordA12"}
 export DB_NAME=${4:-"aivdb"}
@@ -493,8 +493,31 @@ eksctl create addon --name aws-ebs-csi-driver --cluster my-eks-cluster --service
 #+RESULTS:
 
 
-* Delete eks cluster
+* Clear eks cluster
+- Uninstall helm chart
+
+#+begin_src  bash :results output :session "*cloudformation-output*"
+helm uninstall aiv
+#+end_src
+
+#+RESULTS:
+: release "aiv" uninstalled
+
+- Delete RDS stack
 #+begin_src bash :results output :session "*cloudformation-output*"
+STACK_NAME=${1:-"aiv-vpc"}
+echo "Deleting RDS stack: $STACK_NAME-rds"
+aws cloudformation delete-stack \
+  --stack-name ${STACK_NAME}-rds
+
+#+end_src
+
+#+RESULTS:
+: Deleting RDS stack: aiv-vpc-rds
+
+- Delete EKS cluster stack
+
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
 STACK_NAME=${1:-"eks-cluster-stack"}
 echo "Deleting EKS cluster stack: $STACK_NAME"
 aws cloudformation delete-stack \
@@ -507,3 +530,17 @@ echo "EKS cluster stack deleted: $STACK_NAME"
 #+RESULTS:
 : Deleting EKS cluster stack: eks-cluster-stack
 : EKS cluster stack deleted: eks-cluster-stack
+
+- Delete VPC stack
+#+begin_src bash :results output :session "*cloudformation-output*" :async yes
+STACK_NAME=${1:-"aiv-vpc"}
+echo "Deleting VPC stack: $STACK_NAME"
+aws cloudformation delete-stack \
+        --stack-name $STACK_NAME
+aws cloudformation wait stack-delete-complete \
+        --stack-name $STACK_NAME
+echo "VPC stack deleted: $STACK_NAME"
+#+end_src
+
+#+RESULTS:
+: 3a6d6932-45bf-457b-9942-65d4c1391f08
