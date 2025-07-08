@@ -77,6 +77,17 @@ Parameters:
       - 'false'
     Description: 'Enable Multi-AZ deployment'
 
+  DBEngineVersion:
+    Description: 'PostgreSQL engine version'
+    Type: String
+    Default: '16.4'
+    AllowedValues:
+      - '16.4'
+      - '15.12'
+Conditions:
+  IsVersion16: !Equals [!Ref DBEngineVersion, '16.4']
+  IsVersion15: !Equals [!Ref DBEngineVersion, '15.12']
+
 Mappings:
   EnvironmentMap:
     dev:
@@ -113,12 +124,12 @@ Resources:
       GroupName: !Sub '${AWS::StackName}-rds-sg'
       GroupDescription: 'Security group for RDS database'
       VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref ApplicationSecurityGroup
-          Description: 'PostgreSQL access from application tier'
+      # SecurityGroupIngress:
+      #   - IpProtocol: tcp
+      #     FromPort: 5432
+      #     ToPort: 5432
+      #     SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+      #     Description: 'PostgreSQL access from application tier'
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -129,18 +140,6 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # Application Security Group (referenced by RDS)
-  ApplicationSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: !Sub '${AWS::StackName}-app-sg'
-      GroupDescription: 'Security group for application servers'
-      VpcId: !Ref VpcId
-      Tags:
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-app-sg'
-        - Key: Environment
-          Value: !Ref Environment
 
   # DB Parameter Group
   DBParameterGroup:
@@ -148,18 +147,12 @@ Resources:
     Properties:
       DBParameterGroupName: !Sub '${AWS::StackName}-postgres-params'
       Description: 'Custom parameter group for PostgreSQL'
-      Family: 'postgres17'
+      Family: 'postgres16'
+
       Parameters:
+        max_connections: '100'
         shared_preload_libraries: 'pg_stat_statements'
-        log_statement: 'all'
-        log_min_duration_statement: 1000
-        log_checkpoints: 1
-        log_connections: 1
-        log_disconnections: 1
-        log_lock_waits: 1
-        log_temp_files: 0
-        track_activity_query_size: 2048
-        pg_stat_statements.track: 'all'
+
       Tags:
         - Key: Name
           Value: !Sub '${AWS::StackName}-postgres-params'
@@ -188,6 +181,10 @@ Resources:
   DatabaseInstance:
     Type: AWS::RDS::DBInstance
     DeletionPolicy: Snapshot
+    DependsOn:
+      - DBSubnetGroup
+      - DBParameterGroup
+      - DatabaseSecurityGroup
     Properties:
       DBInstanceIdentifier: !Sub '${AWS::StackName}-postgres'
       DBName: !Ref DatabaseName
@@ -196,8 +193,8 @@ Resources:
       StorageType: 'gp2'
       StorageEncrypted: true
 
-      Engine: 'postgres'
-      EngineVersion: '17.5'
+      Engine: postgres
+      EngineVersion: !Ref DBEngineVersion
 
       MasterUsername: !Ref DatabaseUsername
       MasterUserPassword: !Ref DatabasePassword
@@ -273,8 +270,8 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-DatabaseSecurityGroupId'
 
-  ApplicationSecurityGroupId:
-    Description: 'Security group ID for applications'
-    Value: !Ref ApplicationSecurityGroup
+  DatabaseSecurityGroup:
+    Description: 'Security group for RDS database'
+    Value: !Ref DatabaseSecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-ApplicationSecurityGroupId'
+      Name: !Sub '${AWS::StackName}-DatabaseSecurityGroup'
