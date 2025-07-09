@@ -65,28 +65,56 @@ files:
 
 base64_files: {}
 
+jarDownloadScript:
+  enabled: true
+  githubRepo: "aiv-code/docker-aiv"
+  githubBranch: "feat/helm"
+  image:
+    repository: "ghcr.io/giap-aivhub/docker-aiv"
+    tag: "helper"
+    pullPolicy: "IfNotPresent"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
 # Persistence configuration
 persistence:
-  enabled: true
+  enabled: false
   storageClass:
-    create: true
+    create: false
     name: gp3
-    provisioner: ebs.csi.aws.com
+    provisioner: ebs.csi.eks.amazonaws.com
     parameters:
       type: gp3
       fsType: ext4
     volumeBindingMode: WaitForFirstConsumer
     allowVolumeExpansion: true
-  storageClassName: gp3
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+
+  # storageClassName: gp3
   accessModes:
     - ReadWriteOnce
   size: 10Gi
-  mountPath: /opt
+  mountPath: /var/lib/aiv/drivers
   annotations: {}
 
 # AI component configuration
 ai:
-  enabled: true
+  enabled: false
   replicaCount: 1
   image:
     repository: jits023/aiv-ai

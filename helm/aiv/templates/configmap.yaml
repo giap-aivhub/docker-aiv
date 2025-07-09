@@ -13,3 +13,199 @@ data:
 {{ $content | indent 4 }}
 {{- end }}
 {{- end }}
+
+{{- if .Values.jarDownloadScript.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aiv.fullname" . }}-scripts
+  labels:
+{{ include "aiv.labels" . | indent 4 }}
+
+data:
+  check_and_download_jars.sh: |-
+    #!/bin/bash
+
+    # Script to check and download required JAR files
+    # Author: DevOps Engineer
+    # Description: Verifies presence of JAR files and downloads missing ones from GitHub
+
+    set -euo pipefail  # Exit on error, undefined variables, and pipe failures
+
+    # Configuration
+    GITHUB_REPO="aiv-code/docker-aiv"
+    GITHUB_BRANCH="main"  # Change to your default branch if different
+    BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/config/drivers"
+
+    # Define required JAR files
+    declare -a REQUIRED_JARS=(
+        "aalto-xml-1.3.2.jar"
+        "bigqueryloader-2.0.0.jar"
+        "commondata-2.0.0.jar"
+        "csvloader-2.0.0.jar"
+        "dataendpointloader-2.0.0.jar"
+        "datasource-2.0.0.jar"
+        "dremioloader-2.0.0.jar"
+        "excelloader-2.0.0.jar"
+        "externalserviceloader-2.0.0.jar"
+        "fastexcel-0.14.0.jar"
+        "fastexcel-reader-0.14.0.jar"
+        "flight-sql-jdbc-driver-10.0.0.jar"
+        "googlesheetloader-2.0.0.jar"
+        "influxdb-client-core-6.8.0.jar"
+        "influxdb-client-java-6.8.0.jar"
+        "influxdb-client-utils-6.8.0.jar"
+        "influxdb-java-2.23.jar"
+        "jsonloader-2.0.0.jar"
+        "mongodbloader-2.0.0.jar"
+        "ojdbc8-21.7.0.0.jar"
+        "postgresql-42.7.2.jar"
+        "security-postgres-2.0.0.jar"
+        "serverscriptloader-2.0.0.jar"
+        "unifiedlayer-2.0.0.jar"
+    )
+
+    # Colors for output
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+
+    # Function to print colored output
+    print_status() {
+        local color=$1
+        local message=$2
+        echo -e "${color}${message}${NC}"
+    }
+
+    # Function to check if a command exists
+    command_exists() {
+        command -v "$1" >/dev/null 2>&1
+    }
+
+    # Function to download a file with retry logic
+    download_file() {
+        local filename=$1
+        local url=$2
+        local max_attempts=3
+        local attempt=1
+
+        while [ $attempt -le $max_attempts ]; do
+            print_status $YELLOW "Attempt $attempt: Downloading $filename..."
+
+            if command_exists curl; then
+                if curl -L -o "$filename" "$url" --fail --silent --show-error; then
+                    print_status $GREEN "✓ Successfully downloaded $filename"
+                    return 0
+                fi
+            elif command_exists wget; then
+                if wget -O "$filename" "$url" --quiet; then
+                    print_status $GREEN "✓ Successfully downloaded $filename"
+                    return 0
+                fi
+            else
+                print_status $RED "✗ Error: Neither curl nor wget is available"
+                return 1
+            fi
+
+            print_status $RED "✗ Failed to download $filename (attempt $attempt/$max_attempts)"
+            ((attempt++))
+
+            if [ $attempt -le $max_attempts ]; then
+                sleep 2
+            fi
+        done
+
+        return 1
+    }
+
+    # Function to verify file integrity (basic check)
+    verify_jar_file() {
+        local filename=$1
+
+        if [ ! -f "$filename" ]; then
+            return 1
+        fi
+        return 0
+    }
+
+    # Main function
+    main() {
+        print_status $GREEN "=== JAR File Checker and Downloader ==="
+        print_status $YELLOW "Checking for required JAR files..."
+
+        # cd to the directory $1
+
+        if [ $# -eq 1 ] && [ -d "$1" ]; then
+            mkdir -p "$1"
+            cd "$1" || { print_status $RED "✗ Error: Cannot change to directory $1"; exit 1; }
+            print_status $YELLOW "Changed directory to $(pwd)"
+        else
+            print_status $YELLOW "Using current directory: $(pwd)"
+        fi
+
+        local missing_files=()
+        local existing_files=()
+
+        # Check which files are missing
+        for jar_file in "${REQUIRED_JARS[@]}"; do
+            if verify_jar_file "$jar_file"; then
+                existing_files+=("$jar_file")
+                print_status $GREEN "✓ Found: $jar_file"
+            else
+                missing_files+=("$jar_file")
+                print_status $RED "✗ Missing: $jar_file"
+            fi
+        done
+
+        # Report status
+        echo
+        print_status $GREEN "Found ${#existing_files[@]} of ${#REQUIRED_JARS[@]} required JAR files"
+
+        if [ ${#missing_files[@]} -eq 0 ]; then
+            print_status $GREEN "🎉 All required JAR files are present!"
+            return 0
+        fi
+
+        print_status $YELLOW "📥 Downloading ${#missing_files[@]} missing JAR files..."
+
+        # Download missing files
+        local download_success=0
+        local download_failed=0
+
+        for jar_file in "${missing_files[@]}"; do
+            local download_url="${BASE_URL}/${jar_file}"
+            echo
+            print_status $YELLOW "Processing: $jar_file"
+
+            if download_file "$jar_file" "$download_url"; then
+                if verify_jar_file "$jar_file"; then
+                    download_success=$((download_success + 1))
+                else
+                    print_status $RED "✗ Downloaded file $jar_file failed verification"
+                    download_failed=$((download_failed + 1))
+                fi
+            else
+                print_status $RED "✗ Failed to download $jar_file"
+                download_failed=$((download_failed + 1))
+            fi
+        done
+
+        # Final report
+        echo
+        print_status $GREEN "=== Download Summary ==="
+        print_status $GREEN "✓ Successfully downloaded: $download_success"
+        if [ $download_failed -gt 0 ]; then
+            print_status $RED "✗ Failed downloads: $download_failed"
+            return 1
+        else
+            print_status $GREEN "🎉 All downloads completed successfully!"
+            return 0
+        fi
+    }
+
+    # Run the script
+    main "$@"
+
+{{- end }}
