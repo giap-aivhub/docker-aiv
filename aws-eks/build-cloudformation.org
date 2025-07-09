@@ -239,7 +239,8 @@ fi
 
 * IDEA Setup kafka
 
-* TODO Setup aiv helm chart
+* DONE Setup aiv helm chart
+CLOSED: [2025-07-09 Wed 16:19]
 - Connect to eks cluster
 #+begin_src compile :results output
 CLUSTER_NAME=${1:-"my-eks-cluster"}
@@ -256,7 +257,7 @@ cat > values.aiv.yaml <<EOF
 fullnameOverride: aiv
 fullnameOverride: "aiv"
 
-replicaCount: 2
+replicaCount: 1
 
 # Set service is ALB aws
 service:
@@ -414,6 +415,28 @@ files:
 
     </configuration>
 
+persistence:
+  enabled: true
+  storageClassName: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+  storageClass:
+    create: true
+    name: gp3
+    provisioner: ebs.csi.eks.amazonaws.com
+    parameters:
+      type: gp3
+      fsType: ext4
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: true
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+
+jarDownloadScript:
+  enabled: true
+
 EOF
 
 #+end_src
@@ -421,25 +444,24 @@ EOF
 #+RESULTS:
 
 - Deploy helm chart
-#+begin_src bash :results output :session "*cloudformation-output*"
-helm upgrade aiv ../../helm/helm/aiv/ -f values.aiv.yaml
+#+begin_src compile :results silent
+helm repo add aiv-charts https://giap-aivhub.github.io/docker-aiv/
+helm repo update
+#+end_src
+
+#+begin_src compile :results silent
+helm search repo aiv-charts
+#+end_src
+
+#+begin_src compile :results silent
+helm delete aiv
+#+end_src
+
+#+begin_src compile :results silent
+helm install aiv aiv-charts/aiv -f values.aiv.yaml
 #+end_src
 
 #+RESULTS:
-#+begin_example
-Release "aiv" has been upgraded. Happy Helming!
-NAME: aiv
-LAST DEPLOYED: Tue Jul  8 14:11:17 2025
-NAMESPACE: default
-STATUS: deployed
-REVISION: 5
-NOTES:
-1. Get the application URL by running these commands:
-     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch the status of by running 'kubectl get --namespace default svc -w aiv'
-  export SERVICE_IP=$(kubectl get svc --namespace default aiv --template "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}")
-  echo http://$SERVICE_IP:80
-#+end_example
 
 * DONE ALB ingress
 CLOSED: [2025-07-08 Tue 16:09]
@@ -519,6 +541,7 @@ aws cloudformation delete-stack \
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
 STACK_NAME=${1:-"eks-cluster-stack"}
+
 echo "Deleting EKS cluster stack: $STACK_NAME"
 aws cloudformation delete-stack \
   --stack-name ${STACK_NAME}-eks
@@ -528,8 +551,7 @@ echo "EKS cluster stack deleted: $STACK_NAME"
 #+end_src
 
 #+RESULTS:
-: Deleting EKS cluster stack: eks-cluster-stack
-: EKS cluster stack deleted: eks-cluster-stack
+: d48dcd35-ce16-4de2-acb4-7afe819d889d
 
 - Delete VPC stack
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
@@ -544,3 +566,17 @@ echo "VPC stack deleted: $STACK_NAME"
 
 #+RESULTS:
 : 3a6d6932-45bf-457b-9942-65d4c1391f08
+
+* DONE Build docker image helper
+CLOSED: [2025-07-09 Wed 15:02]
+#+begin_src compile :results silent
+docker build -t ghcr.io/giap-aivhub/docker-aiv:helper -f Dockerfiler.helper .
+#+end_src
+
+#+begin_src compile :results silent
+docker push ghcr.io/giap-aivhub/docker-aiv:helper
+#+end_src
+
+* DONE Build helm chart repo
+CLOSED: [2025-07-09 Wed 16:12]
+https://github.com/giap-aivhub/docker-aiv/actions/runs/16174419557
