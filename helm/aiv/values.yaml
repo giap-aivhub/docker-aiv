@@ -65,7 +65,8 @@ files:
 
 base64_files: {}
 
-jarDownloadScript:
+# Driver uploader configuration
+driver_uploader:
   enabled: true
   githubRepo: "aiv-code/docker-aiv"
   githubBranch: "feat/helm"
@@ -73,6 +74,7 @@ jarDownloadScript:
     repository: "ghcr.io/giap-aivhub/docker-aiv"
     tag: "helper"
     pullPolicy: "IfNotPresent"
+  path: "/var/lib/aiv/drivers"
   resources:
     limits:
       cpu: 200m

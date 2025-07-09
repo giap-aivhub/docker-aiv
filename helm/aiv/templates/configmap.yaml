@@ -14,7 +14,7 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if .Values.jarDownloadScript.enabled }}
+{{- if .Values.driver_uploader.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -34,8 +34,8 @@ data:
     set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
     # Configuration
-    GITHUB_REPO="{{ .Values.jarDownloadScript.githubRepo }}"}
-    GITHUB_BRANCH="{{ .Values.jarDownloadScript.githubBranch | default "main" }}"
+    GITHUB_REPO="{{ .Values.driver_uploader.githubRepo }}"
+    GITHUB_BRANCH="{{ .Values.driver_uploader.githubBranch | default "main" }}"
     BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/config/drivers"
 
     # Define required JAR files
@@ -79,7 +79,7 @@ data:
         local attempt=1
 
         while [ $attempt -le $max_attempts ]; do
-            echoELLOW "Attempt $attempt: Downloading $filename..."
+            echo "Attempt $attempt: Downloading $filename..."
 
             if command_exists curl; then
                 if curl -L -o "$filename" "$url" --fail --silent --show-error; then
