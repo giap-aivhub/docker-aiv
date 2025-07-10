@@ -14,7 +14,7 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if .Values.driver_uploader.enabled }}
+{{- if .Values.driver_updater.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -34,8 +34,8 @@ data:
     set -euo pipefail  # Exit on error, undefined variables, and pipe failures
 
     # Configuration
-    GITHUB_REPO="{{ .Values.driver_uploader.githubRepo }}"
-    GITHUB_BRANCH="{{ .Values.driver_uploader.githubBranch | default "main" }}"
+    GITHUB_REPO="{{ .Values.driver_updater.githubRepo }}"
+    GITHUB_BRANCH="{{ .Values.driver_updater.githubBranch | default "main" }}"
     BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/config/drivers"
 
     # Define required JAR files

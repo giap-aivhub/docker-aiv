@@ -29,12 +29,12 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
 
-      {{- if .Values.driver_uploader.enabled }}
+      {{- if .Values.driver_updater.enabled }}
       initContainers:
         - name: driver-updater
-          image: "{{ .Values.driver_uploader.image.repository }}:{{ .Values.driver_uploader.image.tag }}"
-          imagePullPolicy: {{ .Values.driver_uploader.image.pullPolicy | default "IfNotPresent" }}
-          command: ["/bin/bash", "/scripts/check_and_download_jars.sh", "{{ .Values.driver_uploader.path }}"]
+          image: "{{ .Values.driver_updater.image.repository }}:{{ .Values.driver_updater.image.tag }}"
+          imagePullPolicy: {{ .Values.driver_updater.image.pullPolicy | default "IfNotPresent" }}
+          command: ["/bin/bash", "/scripts/check_and_download_jars.sh", "{{ .Values.driver_updater.path }}"]
           volumeMounts:
           - name: scripts
             mountPath: /scripts
@@ -42,14 +42,14 @@ spec:
           {{- if .Values.persistence.enabled }}
           - name: storage
             mountPath: {{ .Values.persistence.mountPath }}
-          {{- else if .Values.driver_uploader.enabled }}
+          {{- else if .Values.driver_updater.enabled }}
           - name: storage
-            mountPath: {{ .Values.driver_uploader.path }}
+            mountPath: {{ .Values.driver_updater.path }}
           {{- end }}
           resources:
-            {{- toYaml .Values.driver_uploader.resources | nindent 12 }}
+            {{- toYaml .Values.driver_updater.resources | nindent 12 }}
           securityContext:
-            {{- toYaml .Values.driver_uploader.securityContext | nindent 12 }}
+            {{- toYaml .Values.driver_updater.securityContext | nindent 12 }}
       {{- end }}
 
       containers:
@@ -98,9 +98,9 @@ spec:
             {{- if .Values.persistence.enabled }}
           - name: storage
             mountPath: {{ .Values.persistence.mountPath }}
-            {{- else if .Values.driver_uploader.enabled }}
+            {{- else if .Values.driver_updater.enabled }}
           - name: storage
-            mountPath: {{ .Values.driver_uploader.path }}
+            mountPath: {{ .Values.driver_updater.path }}
             {{- end }}
       volumes:
         {{- if .Values.files }}
@@ -109,7 +109,7 @@ spec:
             name: {{ include "aiv.fullname" . }}-files
         {{- end }}
 
-        {{- if .Values.driver_uploader.enabled }}
+        {{- if .Values.driver_updater.enabled }}
         - name: scripts
           configMap:
             name: {{ include "aiv.fullname" . }}-scripts
@@ -129,7 +129,7 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: {{ include "aiv.fullname" . }}-pvc
-        {{- else if .Values.driver_uploader.enabled }}
+        {{- else if .Values.driver_updater.enabled }}
         - name: storage
           emptyDir: {}
         {{- end }}
