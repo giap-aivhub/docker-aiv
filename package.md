@@ -17,13 +17,13 @@ apt-get install -y \
 
 - Download the package
 ```
-wget https://github.com/giap-aivhub/docker-aiv/releases/download/debian%2F6.3.4/avi-6.3.4-deb12.deb
+wget https://github.com/giap-aivhub/docker-aiv/releases/download/debian%2F6.3.6/aiv_6.3.6_all.deb
 ```
 
 
 - Install package
 ```
-dpkg -i avi-6.3.4-deb12.deb
+dpkg -i aiv_6.3.6_all.deb
 ```
 
 - Configure the service
