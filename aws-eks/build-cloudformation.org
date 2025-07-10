@@ -27,17 +27,16 @@ CLOSED: [2025-07-06 Sun 15:26]
 - Separate the vpc.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"aiv-vpc"}
-CLUSTER_NAME=${2:-"aiv-cluster"}
-VPC_CIDR=${3:-"10.0.0.0/16"}
+CLUSTER_NAME=${1:-"aiv"}
+VPC_CIDR=${2:-"10.0.0.0/16"}
 
-echo "Deploying VPC stack: $STACK_NAME"
+echo "Deploying VPC stack: $CLUSTER_NAME"
 echo "Cluster name: $CLUSTER_NAME"
 echo "VPC CIDR: $VPC_CIDR"
 
 aws cloudformation deploy \
   --template-file vpc.yaml \
-  --stack-name $STACK_NAME \
+  --stack-name ${CLUSTER_NAME}-vpc \
   --parameter-overrides \
     ClusterName=$CLUSTER_NAME \
     VpcCidr=$VPC_CIDR \
@@ -49,8 +48,8 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying VPC stack: aiv-vpc
-: Cluster name: aiv-cluster
+: Deploying VPC stack: aiv
+: Cluster name: aiv
 : VPC CIDR: 10.0.0.0/16
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
@@ -63,11 +62,11 @@ CLOSED: [2025-07-06 Sun 16:28]
 
 - Get output VPC ID and Subnet IDs
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"aiv-vpc"}
-echo "Fetching outputs for stack: $STACK_NAME"
+CLUSTER_NAME=${1:-"aiv"}
+echo "Fetching outputs for stack: $CLUSTER_NAME"
 # Get and assignt VPC ID and Subnet IDs to variables
 output=$(aws cloudformation describe-stacks \
-  --stack-name $STACK_NAME \
+  --stack-name ${CLUSTER_NAME}-vpc \
   --query "Stacks[0].Outputs[?OutputKey=='VpcId' || OutputKey=='PublicSubnetIds' || OutputKey=='PrivateSubnetIds'].[OutputKey, OutputValue]" \
   --output text | xargs -n 2 echo)
 VPC_ID=$(echo "$output" | grep 'VpcId' | awk '{print $2}')
@@ -80,21 +79,22 @@ echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
 #+end_src
 
 #+RESULTS:
-: Fetching outputs for stack: aiv-vpc
-: VPC ID: vpc-04de81e81693c2f94
-: Public Subnet IDs: subnet-0249845c31945bbab,subnet-06aaf15653e9dc774
-: Private Subnet IDs: subnet-0466b3c2540f298ae,subnet-02fc147bb6cd31534
+: Fetching outputs for stack: aiv
+: VPC ID: vpc-0bdcc15e831be1ee5
+: Public Subnet IDs: subnet-09f5b5e7a7b32867a,subnet-04a48e4bcfed809de
+: Private Subnet IDs: subnet-09c3b58d647b96dce,subnet-0d09b15796ddede04
 
 - Create eks from eks-infrastructure.yaml file
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"aiv-vpc"}
+CLUSTER_NAME=${2:-"aiv"}
 KEY_NAME=${2:-"eks-keypair"}
-echo "Deploying EKS cluster stack: $STACK_NAME"
+echo "Deploying EKS cluster:  $CLUSTER_NAME"
 aws cloudformation deploy \
   --template-file eks-infrastructure.yaml \
-  --stack-name ${STACK_NAME}-eks \
+  --stack-name ${CLUSTER_NAME}-eks \
         --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
+    ClusterName=$CLUSTER_NAME \
     KeyPairName=$KEY_NAME \
     VpcId=$VPC_ID \
     PublicSubnetIds=$PUBLIC_SUBNET_IDS \
@@ -107,11 +107,10 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying EKS cluster stack: aiv-vpc
+: Deploying EKS cluster:  aiv
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
-: 
-: Successfully created/updated stack - aiv-vpc-eks
+: Successfully created/updated stack - aiv-eks
 
 
 * DONE Setup postgresql rds
@@ -119,14 +118,14 @@ CLOSED: [2025-07-07 Mon 16:43]
 - Setup RDS.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-export STACK_NAME=${1:-"aiv-vpc"}
-export DB_USERNAME=${2:-"admin"}
+export CLUSTER_NAME=${1:-"aiv"}
+export DB_USERNAME=${2:-"dbadmin"}
 export DB_PASSWORD=${3:-"pasAswordA12"}
 export DB_NAME=${4:-"aivdb"}
-echo "Deploying RDS stack: $STACK_NAME-rds"
+echo "Deploying RDS stack: $CLUSTER_NAME-rds"
 aws cloudformation deploy \
   --template-file rds.yaml \
-  --stack-name ${STACK_NAME}-rds \
+  --stack-name ${CLUSTER_NAME}-rds \
   --parameter-overrides \
     Environment=dev \
     VpcId=$VPC_ID \
@@ -143,21 +142,17 @@ aws cloudformation deploy \
 #+end_src
 
 #+RESULTS:
-: Deploying RDS stack: aiv-vpc-rds
+: Deploying RDS stack: aiv-rds
 : Waiting for changeset to be created..
 : Waiting for stack create/update to complete
-: 
-: 
-: 
-: 
-: Successfully created/updated stack - aiv-vpc-rds
+: Successfully created/updated stack - aiv-rds
 
 - Get RDS output
 #+begin_src bash :results output :session "*cloudformation-output*"
-STACK_NAME=${1:-"aiv-vpc"}
-echo "Fetching RDS outputs for stack: $STACK_NAME-rds"
+CLUSTER_NAME=${1:-"aiv"}
+echo "Fetching RDS outputs for stack: $CLUSTER_NAME-rds"
 export DB_ENDPOINT=$(aws cloudformation describe-stacks \
-  --stack-name ${STACK_NAME}-rds \
+  --stack-name ${CLUSTER_NAME}-rds \
   --query "Stacks[0].Outputs[?OutputKey=='DatabaseEndpoint'].[OutputValue][0][0]" \
   --output text)
 echo "DB Endpoint: $DB_ENDPOINT"
@@ -165,19 +160,21 @@ echo "DB Endpoint: $DB_ENDPOINT"
 #+end_src
 
 #+RESULTS:
-: Fetching RDS outputs for stack: aiv-vpc-rds
-: DB Endpoint: aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
+: Fetching RDS outputs for stack: aiv-rds
+
 
 
 - Add security group rule to allow access to RDS
+
+FIXME: the source group is the not node group security group, it is the eks cluster security group
 #+begin_src bash :results output :session "*cloudformation-output*"
 echo "Adding security group rule to allow access to RDS"
 NODE_GROUP_ID=$(aws cloudformation describe-stacks \
-  --stack-name ${STACK_NAME}-eks \
+  --stack-name ${CLUSTER_NAME}-eks \
   --query "Stacks[0].Outputs[?OutputKey=='NodeGroupSecurityGroupId'].[OutputValue][0]" \
   --output text)
 RDS_SG_ID=$(aws cloudformation describe-stacks \
-  --stack-name ${STACK_NAME}-rds \
+  --stack-name ${CLUSTER_NAME}-rds \
   --query "Stacks[0].Outputs[?OutputKey=='DatabaseSecurityGroupId'].[OutputValue][0]" \
   --output text)
 
@@ -197,18 +194,18 @@ Adding security group rule to allow access to RDS
     "Return": true,
     "SecurityGroupRules": [
         {
-            "SecurityGroupRuleId": "sgr-0b300bd4711d3d264",
-            "GroupId": "sg-04bd944f310060f75",
+            "SecurityGroupRuleId": "sgr-01eca826a9142eb0b",
+            "GroupId": "sg-07fe91f7d501f1b3e",
             "GroupOwnerId": "417447013272",
             "IsEgress": false,
             "IpProtocol": "tcp",
             "FromPort": 5432,
             "ToPort": 5432,
             "ReferencedGroupInfo": {
-                "GroupId": "sg-0ae4260ef4e14a31a",
+                "GroupId": "sg-077330e7285f5eb47",
                 "UserId": "417447013272"
             },
-            "SecurityGroupRuleArn": "arn:aws:ec2:ap-southeast-1:417447013272:security-group-rule/sgr-0b300bd4711d3d264"
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-southeast-1:417447013272:security-group-rule/sgr-01eca826a9142eb0b"
         }
     ]
 }
@@ -218,6 +215,7 @@ Security group rule added to allow access from node group to RDS.
 
 
 - Test RDS connection
+FIXME: It should run on k8s
 #+begin_src bash :results output :session "*cloudformation-output*"
 echo "Testing RDS connection to $DB_ENDPOINT"
 
@@ -239,16 +237,74 @@ fi
 
 * IDEA Setup kafka
 
+* STRT Setup ESB Storage Volume
+;; https://stackoverflow.com/questions/75758115/persistentvolumeclaim-is-stuck-waiting-for-a-volume-to-be-created-either-by-ex
+
+#+name: install eksctl
+#+begin_src compile :results silent
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+#+end_src
+
+- Enable IAM OIDC provider
+#+begin_src compile :results output :session "*cloudformation-output*"
+export CLUSTER_NAME=${1:-"aiv"}
+eksctl utils associate-iam-oidc-provider --region=ap-southeast-1 --cluster=$CLUSTER_NAME --approve
+#+end_src
+
+# - The same but with aws cl
+# #+begin_src compile :results silent
+# aws iam create-role \
+#       --role-name AmazonEKS_EBS_CSI_DriverRole \
+#       --assume-role-policy-document file://"aws-ebs-csi-driver-trust-policy.json"
+# #+end_src
+
+# #+begin_src compile :results silent
+# aws iam attach-role-policy \
+#       --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+#       --role-name AmazonEKS_EBS_CSI_DriverRole
+# #+end_src
+
+#+RESULTS:
+- Create Amazon EBS CSI driver IAM role
+#+begin_src compile :results output :session "*cloudformation-output*"
+export CLUSTER_NAME=${1:-"aiv"}
+eksctl create iamserviceaccount \
+  --region ap-southeast-1 \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster $CLUSTER_NAME \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve \
+  --role-only \
+  --role-name AmazonEKS_EBS_CSI_DriverRole
+#+end_src
+
+#+RESULTS:
+
+
+- Add EBS CSI addons
+#+begin_src compile :results output :session "*cloudformation-output*"
+export CLUSTER_NAME=${1:-"aiv"}
+eksctl create addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME \
+ --service-account-role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKS_EBS_CSI_DriverRole --force
+#+end_src
+
+#+RESULTS:
+
+
 * DONE Setup aiv helm chart
 CLOSED: [2025-07-09 Wed 16:19]
 - Connect to eks cluster
 #+begin_src compile :results output
-CLUSTER_NAME=${1:-"my-eks-cluster"}
+CLUSTER_NAME=${1:-"aiv"}
 echo "Setting up kubectl context for EKS cluster"
 aws eks update-kubeconfig \
   --name $CLUSTER_NAME
 echo "Kubectl context set for cluster: $CLUSTER_NAME"
 #+end_src
+
+#+RESULTS:
 
 - Build helm chart values.yaml file
 
@@ -425,7 +481,7 @@ persistence:
   storageClass:
     create: true
     name: gp3
-    provisioner: ebs.csi.eks.amazonaws.com
+    provisioner: ebs.csi.aws.com
     parameters:
       type: gp3
       fsType: ext4
@@ -434,8 +490,9 @@ persistence:
     annotations:
       storageclass.kubernetes.io/is-default-class: "true"
 
-jarDownloadScript:
+driver_updater:
   enabled: true
+  securityContext: null
 
 EOF
 
@@ -458,62 +515,13 @@ helm delete aiv
 #+end_src
 
 #+begin_src compile :results silent
-helm install aiv aiv-charts/aiv -f values.aiv.yaml
+helm upgrade aiv aiv-charts/aiv -f values.aiv.yaml
 #+end_src
 
 #+RESULTS:
 
 * DONE ALB ingress
 CLOSED: [2025-07-08 Tue 16:09]
-
-* Setup ESB Storage Volume
-;; https://stackoverflow.com/questions/75758115/persistentvolumeclaim-is-stuck-waiting-for-a-volume-to-be-created-either-by-ex
-
-#+name: install eksctl
-#+begin_src compile :results silent
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
-#+end_src
-
-- Enable IAM OIDC provider
-#+begin_src compile :results output :session "*cloudformation-output*"
-eksctl utils associate-iam-oidc-provider --region=ap-southeast-1 --cluster=my-eks-cluster --approve
-#+end_src
-
-#+RESULTS:
-- Create role
-#+begin_src compile :results output :session "*cloudformation-output*"
-eksctl create iamserviceaccount \
-  --region ap-southeast-1 \
-  --name ebs-csi-controller-sa \
-  --namespace kube-system \
-  --cluster my-eks-cluster \
-  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
-  --approve \
-  --role-only \
-  --role-name AmazonEKS_EBS_CSI_DriverRole
-#+end_src
-#+begin_src compile :results silent
-aws iam create-role \
-      --role-name AmazonEKS_EBS_CSI_DriverRole \
-      --assume-role-policy-document file://"aws-ebs-csi-driver-trust-policy.json"
-#+end_src
-
-#+begin_src compile :results silent
-aws iam attach-role-policy \
-      --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
-      --role-name AmazonEKS_EBS_CSI_DriverRole
-#+end_src
-
-#+RESULTS:
-
-- Add EBS CSI addons
-#+begin_src compile :results output :session "*cloudformation-output*"
-eksctl create addon --name aws-ebs-csi-driver --cluster my-eks-cluster --service-account-role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKS_EBS_CSI_DriverRole --force
-#+end_src
-
-#+RESULTS:
-
 
 * Clear eks cluster
 - Uninstall helm chart
@@ -527,10 +535,10 @@ helm uninstall aiv
 
 - Delete RDS stack
 #+begin_src bash :results output :session "*cloudformation-output*"
-STACK_NAME=${1:-"aiv-vpc"}
-echo "Deleting RDS stack: $STACK_NAME-rds"
+CLUSTER_NAME=${1:-"aiv"}
+echo "Deleting RDS stack: $CLUSTER_NAME-rds"
 aws cloudformation delete-stack \
-  --stack-name ${STACK_NAME}-rds
+  --stack-name ${CLUSTER_NAME}-rds
 
 #+end_src
 
@@ -540,14 +548,13 @@ aws cloudformation delete-stack \
 - Delete EKS cluster stack
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"eks-cluster-stack"}
-
-echo "Deleting EKS cluster stack: $STACK_NAME"
+CLUSTER_NAME=${1:-"aiv"}
+echo "Deleting EKS cluster stack: $CLUSTER_NAME"
 aws cloudformation delete-stack \
-  --stack-name ${STACK_NAME}-eks
+  --stack-name ${$CLUSTER_NAME}
 aws cloudformation wait stack-delete-complete \
-        --stack-name ${STACK_NAME}-eks
-echo "EKS cluster stack deleted: $STACK_NAME"
+        --stack-name ${CLUSTER_NAME}
+echo "EKS cluster stack deleted: $CLUSTER_NAME"
 #+end_src
 
 #+RESULTS:
@@ -555,17 +562,16 @@ echo "EKS cluster stack deleted: $STACK_NAME"
 
 - Delete VPC stack
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-STACK_NAME=${1:-"aiv-vpc"}
-echo "Deleting VPC stack: $STACK_NAME"
+CLUSTER_NAME=${1:-"aiv"}
+echo "Deleting VPC stack: $CLUSTER_NAME"
 aws cloudformation delete-stack \
-        --stack-name $STACK_NAME
+        --stack-name $CLUSTER_NAME-vpc
 aws cloudformation wait stack-delete-complete \
-        --stack-name $STACK_NAME
-echo "VPC stack deleted: $STACK_NAME"
+        --stack-name $CLUSTER_NAME-vpc
+echo "VPC stack deleted: $CLUSTER_NAME"
 #+end_src
 
 #+RESULTS:
-: 3a6d6932-45bf-457b-9942-65d4c1391f08
 
 * DONE Build docker image helper
 CLOSED: [2025-07-09 Wed 15:02]
