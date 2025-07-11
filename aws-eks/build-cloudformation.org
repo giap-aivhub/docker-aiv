@@ -543,7 +543,7 @@ aws cloudformation delete-stack \
 #+end_src
 
 #+RESULTS:
-: Deleting RDS stack: aiv-vpc-rds
+: Deleting RDS stack: aiv-rds
 
 - Delete EKS cluster stack
 
@@ -551,14 +551,16 @@ aws cloudformation delete-stack \
 CLUSTER_NAME=${1:-"aiv"}
 echo "Deleting EKS cluster stack: $CLUSTER_NAME"
 aws cloudformation delete-stack \
-  --stack-name ${$CLUSTER_NAME}
+  --stack-name ${CLUSTER_NAME}
 aws cloudformation wait stack-delete-complete \
         --stack-name ${CLUSTER_NAME}
 echo "EKS cluster stack deleted: $CLUSTER_NAME"
 #+end_src
 
 #+RESULTS:
-: d48dcd35-ce16-4de2-acb4-7afe819d889d
+: Deleting EKS cluster stack: aiv
+: CLUSTER_NAME}: bad substitution
+: EKS cluster stack deleted: aiv
 
 - Delete VPC stack
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
