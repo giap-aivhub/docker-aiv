@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/giap-aivhub/docker-aiv
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "6.3.4-debian12"
+  tag: "6.3.6-debian12"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -67,7 +67,7 @@ base64_files: {}
 
 # Driver uploader configuration
 driver_updater:
-  enabled: true
+  enabled: false
   githubRepo: "aiv-code/docker-aiv"
   githubBranch: "feat/helm"
   image:
