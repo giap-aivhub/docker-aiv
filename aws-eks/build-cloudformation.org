@@ -1,9 +1,14 @@
+* Install awscli
+#+begin_src compile :results silent
+pip install awscli
+#+end_src
+
 * DONE Create new one keypair
 CLOSED: [2025-07-05 Sat 17:54]
 Have to manually create the input the keypair-name
 - Generate a new keypair if not exists
 #+begin_src bash :results output :session "*cloudformation-output*"
-KEY_NAME=${1:-"eks-keypair"}
+export KEY_NAME=${KEY_NAME:-"eks-keypair"}
 echo "Checking if key pair $KEY_NAME exists"
 if aws ec2 describe-key-pairs --key-name "$KEY_NAME" >/dev/null 2>&1; then
   echo "Key pair $KEY_NAME already exists."
@@ -27,8 +32,9 @@ CLOSED: [2025-07-06 Sun 15:26]
 - Separate the vpc.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-CLUSTER_NAME=${1:-"aiv"}
-VPC_CIDR=${2:-"10.0.0.0/16"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+VPC_CIDR="10.0.0.0/16"
 
 echo "Deploying VPC stack: $CLUSTER_NAME"
 echo "Cluster name: $CLUSTER_NAME"
@@ -62,7 +68,8 @@ CLOSED: [2025-07-06 Sun 16:28]
 
 - Get output VPC ID and Subnet IDs
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
 echo "Fetching outputs for stack: $CLUSTER_NAME"
 # Get and assignt VPC ID and Subnet IDs to variables
 output=$(aws cloudformation describe-stacks \
@@ -80,14 +87,15 @@ echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
 
 #+RESULTS:
 : Fetching outputs for stack: aiv
-: VPC ID: vpc-0bdcc15e831be1ee5
-: Public Subnet IDs: subnet-09f5b5e7a7b32867a,subnet-04a48e4bcfed809de
-: Private Subnet IDs: subnet-09c3b58d647b96dce,subnet-0d09b15796ddede04
+: VPC ID: vpc-0aac664af566f810b
+: Public Subnet IDs: subnet-04c05f492405f14f1,subnet-0f06072dcd1ea5e53
+: Private Subnet IDs: subnet-0fc953e1be25fc9d0,subnet-0b1aee24be38d9d24
 
 - Create eks from eks-infrastructure.yaml file
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-CLUSTER_NAME=${2:-"aiv"}
-KEY_NAME=${2:-"eks-keypair"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+export KEY_NAME=${KEY_NAME:-"eks-keypair"}
 echo "Deploying EKS cluster:  $CLUSTER_NAME"
 aws cloudformation deploy \
   --template-file eks-infrastructure.yaml \
@@ -112,16 +120,45 @@ aws cloudformation deploy \
 : Waiting for stack create/update to complete
 : Successfully created/updated stack - aiv-eks
 
+- Install eksctl if not exists
+#+name: install eksctl
+#+begin_src compile :results silent
+if ! command -v eksctl &> /dev/null; then
+  curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+  sudo mv /tmp/eksctl /usr/local/bin
+fi
+#+end_src
+
+- Get EKS security group by eks
+#+begin_src bash :results output :session "*cloudformation-output*"
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+
+echo "Fetching EKS security group for stack: $CLUSTER_NAME-eks"
+export EKS_SG_ID=$(aws eks describe-cluster --name $CLUSTER_NAME \
+        --query cluster.resourcesVpcConfig.clusterSecurityGroupId \
+        --output text)
+echo "EKS Security Group ID: $EKS_SG_ID"
+#+end_src
+
+#+RESULTS:
+: Fetching EKS security group for stack: aiv-eks
+: EKS Security Group ID: sg-0ce3de702bc0a0ada
+
+
+
 
 * DONE Setup postgresql rds
 CLOSED: [2025-07-07 Mon 16:43]
 - Setup RDS.yaml file
 
 #+begin_src bash :results output :session "*cloudformation-output*" :async yes
-export CLUSTER_NAME=${1:-"aiv"}
-export DB_USERNAME=${2:-"dbadmin"}
-export DB_PASSWORD=${3:-"pasAswordA12"}
-export DB_NAME=${4:-"aivdb"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+export DB_USERNAME=${DB_USERNAME:-"dbadmin"}
+export DB_PASSWORD=${DB_PASSWORD:-"pasAswordA12"}
+export DB_NAME=${DB_NAME:-"aivdb"}
+
 echo "Deploying RDS stack: $CLUSTER_NAME-rds"
 aws cloudformation deploy \
   --template-file rds.yaml \
@@ -144,12 +181,15 @@ aws cloudformation deploy \
 #+RESULTS:
 : Deploying RDS stack: aiv-rds
 : Waiting for changeset to be created..
+: 
 : Waiting for stack create/update to complete
+: 
 : Successfully created/updated stack - aiv-rds
 
 - Get RDS output
 #+begin_src bash :results output :session "*cloudformation-output*"
-CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
 echo "Fetching RDS outputs for stack: $CLUSTER_NAME-rds"
 export DB_ENDPOINT=$(aws cloudformation describe-stacks \
   --stack-name ${CLUSTER_NAME}-rds \
@@ -161,18 +201,17 @@ echo "DB Endpoint: $DB_ENDPOINT"
 
 #+RESULTS:
 : Fetching RDS outputs for stack: aiv-rds
+: DB Endpoint: aiv-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
 
 
 
 - Add security group rule to allow access to RDS
 
-FIXME: the source group is the not node group security group, it is the eks cluster security group
 #+begin_src bash :results output :session "*cloudformation-output*"
-echo "Adding security group rule to allow access to RDS"
-NODE_GROUP_ID=$(aws cloudformation describe-stacks \
-  --stack-name ${CLUSTER_NAME}-eks \
-  --query "Stacks[0].Outputs[?OutputKey=='NodeGroupSecurityGroupId'].[OutputValue][0]" \
-  --output text)
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+
+echo "Adding eks security group rule to allow access to RDS"
 RDS_SG_ID=$(aws cloudformation describe-stacks \
   --stack-name ${CLUSTER_NAME}-rds \
   --query "Stacks[0].Outputs[?OutputKey=='DatabaseSecurityGroupId'].[OutputValue][0]" \
@@ -182,30 +221,30 @@ aws ec2 authorize-security-group-ingress \
         --group-id $RDS_SG_ID \
         --protocol tcp \
         --port 5432 \
-        --source-group $NODE_GROUP_ID
+        --source-group $EKS_SG_ID
 
 echo "Security group rule added to allow access from node group to RDS."
 #+end_src
 
 #+RESULTS:
 #+begin_example
-Adding security group rule to allow access to RDS
+Adding eks security group rule to allow access to RDS
 {
     "Return": true,
     "SecurityGroupRules": [
         {
-            "SecurityGroupRuleId": "sgr-01eca826a9142eb0b",
-            "GroupId": "sg-07fe91f7d501f1b3e",
+            "SecurityGroupRuleId": "sgr-05d1692c774a3fc4f",
+            "GroupId": "sg-0cf697e51f3f8462a",
             "GroupOwnerId": "417447013272",
             "IsEgress": false,
             "IpProtocol": "tcp",
             "FromPort": 5432,
             "ToPort": 5432,
             "ReferencedGroupInfo": {
-                "GroupId": "sg-077330e7285f5eb47",
+                "GroupId": "sg-0ce3de702bc0a0ada",
                 "UserId": "417447013272"
             },
-            "SecurityGroupRuleArn": "arn:aws:ec2:ap-southeast-1:417447013272:security-group-rule/sgr-01eca826a9142eb0b"
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-southeast-1:417447013272:security-group-rule/sgr-05d1692c774a3fc4f"
         }
     ]
 }
@@ -214,43 +253,19 @@ Security group rule added to allow access from node group to RDS.
 
 
 
-- Test RDS connection
-FIXME: It should run on k8s
-#+begin_src bash :results output :session "*cloudformation-output*"
-echo "Testing RDS connection to $DB_ENDPOINT"
-
-PGPASSWORD=$DB_PASSWORD psql -h $DB_ENDPOINT -U $DB_USERNAME -d $DB_NAME -c "SELECT 1;"
-if [ $? -eq 0 ]; then
-  echo "RDS connection successful."
-else
-  echo "RDS connection failed."
-fi
-#+end_src
-
-
-#+RESULTS:
-: Testing RDS connection to aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com
-: psql: error: connection to server at "aiv-vpc-rds-postgres.cfci2kee6vzo.ap-southeast-1.rds.amazonaws.com" (10.0.4.183), port 5432 failed: No route to host
-: 	Is the server running on that host and accepting TCP/IP connections?
-: RDS connection failed.
-
-
-* IDEA Setup kafka
-
-* STRT Setup ESB Storage Volume
+* DONE Setup ESB Storage Volume
+CLOSED: [2025-07-14 Mon 14:33]
 ;; https://stackoverflow.com/questions/75758115/persistentvolumeclaim-is-stuck-waiting-for-a-volume-to-be-created-either-by-ex
 
-#+name: install eksctl
-#+begin_src compile :results silent
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
-#+end_src
 
 - Enable IAM OIDC provider
 #+begin_src compile :results output :session "*cloudformation-output*"
-export CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
 eksctl utils associate-iam-oidc-provider --region=ap-southeast-1 --cluster=$CLUSTER_NAME --approve
 #+end_src
+
+#+RESULTS:
 
 # - The same but with aws cl
 # #+begin_src compile :results silent
@@ -268,7 +283,8 @@ eksctl utils associate-iam-oidc-provider --region=ap-southeast-1 --cluster=$CLUS
 #+RESULTS:
 - Create Amazon EBS CSI driver IAM role
 #+begin_src compile :results output :session "*cloudformation-output*"
-export CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
 eksctl create iamserviceaccount \
   --region ap-southeast-1 \
   --name ebs-csi-controller-sa \
@@ -285,7 +301,9 @@ eksctl create iamserviceaccount \
 
 - Add EBS CSI addons
 #+begin_src compile :results output :session "*cloudformation-output*"
-export CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+
 eksctl create addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME \
  --service-account-role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/AmazonEKS_EBS_CSI_DriverRole --force
 #+end_src
@@ -297,14 +315,28 @@ eksctl create addon --name aws-ebs-csi-driver --cluster $CLUSTER_NAME \
 CLOSED: [2025-07-09 Wed 16:19]
 - Connect to eks cluster
 #+begin_src compile :results output
-CLUSTER_NAME=${1:-"aiv"}
+export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
+export CLUSTER_NAME=${CLUSTER_NAME:-"aiv"}
+
 echo "Setting up kubectl context for EKS cluster"
 aws eks update-kubeconfig \
   --name $CLUSTER_NAME
 echo "Kubectl context set for cluster: $CLUSTER_NAME"
 #+end_src
 
-#+RESULTS:
+- Install helm if not exists
+#+begin_src compile :results silent :comint t
+HELM_VERSION=3.17.3
+HELM_HASH=ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd
+
+curl https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz -o /tmp/helm-linux-amd64.tar.gz
+echo "${HELM_HASH}  /tmp/helm-linux-amd64.tar.gz" > /tmp/helm.sha256
+sha256sum -c /tmp/helm.sha256
+tar -xf /tmp/helm-linux-amd64.tar.gz -C /tmp
+sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm-${HELM_VERSION}
+sudo ln -sv /usr/local/bin/helm-${HELM_VERSION} /usr/local/bin/helm
+#+end_src
+
 
 - Build helm chart values.yaml file
 
@@ -327,14 +359,18 @@ service:
     # service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
 
 volumeMounts:
-- mountPath: /var/lib/aiv/repository/econfig/application.yml
+- mountPath: /var/lib/aiv.config/repository/econfig/application.yml
   subPath: application.yml
   name: files
 
-- mountPath: /var/lib/aiv/repository/econfig/logback.xml
+- mountPath: /var/lib/aiv.config/repository/econfig/logback.xml
   subPath: logback.xml
   name: files
 
+command:
+- bash
+- -c
+- cp /var/lib/aiv/* /opt/ -a && mv /var/lib/aiv /var/lib/aiv.old && ln -svf  /opt/ /var/lib/aiv && cp /var/lib/aiv.config/repository/econfig/logback.xml /var/lib/aiv/repository/econfig/logback.xml && cp /var/lib/aiv.config/repository/econfig/application.yml /var/lib/aiv/repository/econfig/application.yml && /usr/bin/aiv
 files:
   application.yml: |
     server:
@@ -477,6 +513,7 @@ persistence:
   accessModes:
     - ReadWriteOnce
   size: 10Gi
+  mountPath: /opt
   annotations: {}
   storageClass:
     create: true
@@ -493,9 +530,9 @@ persistence:
 driver_updater:
   enabled: true
   securityContext: null
+  path: "/opt/drivers"
 
 EOF
-
 #+end_src
 
 #+RESULTS:
@@ -515,13 +552,29 @@ helm delete aiv
 #+end_src
 
 #+begin_src compile :results silent
+helm install aiv aiv-charts/aiv -f values.aiv.yaml
+#+end_src
+
+- Update helm chart if you change values.aiv.yaml
+#+begin_src compile :results silent
 helm upgrade aiv aiv-charts/aiv -f values.aiv.yaml
 #+end_src
 
-#+RESULTS:
 
 * DONE ALB ingress
 CLOSED: [2025-07-08 Tue 16:09]
+
+The ALB is automatically created by the helm chart, so we just need to get the ALB URL and access it.
+
+- Get service
+#+begin_src bash :results output
+kubectl get svc aiv
+#+end_src
+
+#+RESULTS:
+: NAME   TYPE           CLUSTER-IP       EXTERNAL-IP                                                                   PORT(S)        AGE
+: aiv    LoadBalancer   172.20.203.223   aaefde0cb419f45ffbb1c27752c45a0f-373470726.ap-southeast-1.elb.amazonaws.com   80:30151/TCP   67s
+
 
 * Clear eks cluster
 - Uninstall helm chart

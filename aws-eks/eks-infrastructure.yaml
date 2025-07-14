@@ -54,7 +54,7 @@ Parameters:
   NodeGroupMinSize:
     Description: 'Minimum number of worker nodes'
     Type: Number
-    Default: 2
+    Default: 1
   
   NodeGroupMaxSize:
     Description: 'Maximum number of worker nodes'
@@ -65,13 +65,6 @@ Parameters:
     Description: 'Desired number of worker nodes'
     Type: Number
     Default: 2
-
-  NodeGroupDesiredSize:
-    Description: 'Desired number of worker nodes'
-    Type: Number
-    Default: 2
-    MinValue: 1
-    MaxValue: 10
 
 Conditions:
   # Check if private subnets are provided
