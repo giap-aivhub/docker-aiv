@@ -359,18 +359,14 @@ service:
     # service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
 
 volumeMounts:
-- mountPath: /var/lib/aiv.config/repository/econfig/application.yml
+- mountPath: /var/lib/aiv/repository/econfig/application.yml
   subPath: application.yml
   name: files
 
-- mountPath: /var/lib/aiv.config/repository/econfig/logback.xml
+- mountPath: /var/lib/aiv/repository/econfig/logback.xml
   subPath: logback.xml
   name: files
 
-command:
-- bash
-- -c
-- cp /var/lib/aiv/* /opt/ -a && mv /var/lib/aiv /var/lib/aiv.old && ln -svf  /opt/ /var/lib/aiv && cp /var/lib/aiv.config/repository/econfig/logback.xml /var/lib/aiv/repository/econfig/logback.xml && cp /var/lib/aiv.config/repository/econfig/application.yml /var/lib/aiv/repository/econfig/application.yml && /usr/bin/aiv
 files:
   application.yml: |
     server:
@@ -513,8 +509,8 @@ persistence:
   accessModes:
     - ReadWriteOnce
   size: 10Gi
-  mountPath: /opt
-  annotations: {}
+  mountPath: /var/lib/aiv
+
   storageClass:
     create: true
     name: gp3
@@ -529,8 +525,6 @@ persistence:
 
 driver_updater:
   enabled: true
-  securityContext: null
-  path: "/opt/drivers"
 
 EOF
 #+end_src
