@@ -3,7 +3,7 @@
     <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
     <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
     <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
-     <property name="HOME_LOG" value="/var/lib/aiv/logs/core.log"/>
+     <property name="HOME_LOG" value="/var/log/aiv/logs/core.log"/>
     <appender name="CORE-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">

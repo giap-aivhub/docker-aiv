@@ -1,3 +1,8 @@
+aiv (6.3.6-2) unstable; urgency=medium
+
+  * Fix logback for log folder
+ -- Giap <giap-ext@aivhub.com>  2025-07-15T09:12:00
+
 aiv (6.3.6) unstable; urgency=medium
 
   * Update libs
