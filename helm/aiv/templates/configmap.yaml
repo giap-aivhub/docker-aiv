@@ -40,30 +40,9 @@ data:
 
     # Define required JAR files
     declare -a REQUIRED_JARS=(
-        "aalto-xml-1.3.2.jar"
-        "bigqueryloader-2.0.0.jar"
-        "commondata-2.0.0.jar"
-        "csvloader-2.0.0.jar"
-        "dataendpointloader-2.0.0.jar"
-        "datasource-2.0.0.jar"
-        "dremioloader-2.0.0.jar"
-        "excelloader-2.0.0.jar"
-        "externalserviceloader-2.0.0.jar"
-        "fastexcel-0.14.0.jar"
-        "fastexcel-reader-0.14.0.jar"
-        "flight-sql-jdbc-driver-10.0.0.jar"
-        "googlesheetloader-2.0.0.jar"
-        "influxdb-client-core-6.8.0.jar"
-        "influxdb-client-java-6.8.0.jar"
-        "influxdb-client-utils-6.8.0.jar"
-        "influxdb-java-2.23.jar"
-        "jsonloader-2.0.0.jar"
-        "mongodbloader-2.0.0.jar"
-        "ojdbc8-21.7.0.0.jar"
-        "postgresql-42.7.2.jar"
-        "security-postgres-2.0.0.jar"
-        "serverscriptloader-2.0.0.jar"
-        "unifiedlayer-2.0.0.jar"
+{{- range .Values.driver_updater.drivers }}
+        "{{ . }}"
+{{- end }}
     )
 
     # Function to check if a command exists

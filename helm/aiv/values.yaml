@@ -75,22 +75,31 @@ driver_updater:
     tag: "helper"
     pullPolicy: "IfNotPresent"
   path: "/var/lib/aiv/drivers"
-  resources:
-    limits:
-      cpu: 200m
-      memory: 128Mi
-    requests:
-      cpu: 100m
-      memory: 64Mi
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 3000
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
+  drivers:
+    - "aalto-xml-1.3.2.jar"
+    - "bigqueryloader-2.0.0.jar"
+    - "commondata-2.0.0.jar"
+    - "csvloader-2.0.0.jar"
+    - "dataendpointloader-2.0.0.jar"
+    - "datasource-2.0.0.jar"
+    - "dremioloader-2.0.0.jar"
+    - "excelloader-2.0.0.jar"
+    - "externalserviceloader-2.0.0.jar"
+    - "fastexcel-0.14.0.jar"
+    - "fastexcel-reader-0.14.0.jar"
+    - "flight-sql-jdbc-driver-10.0.0.jar"
+    - "googlesheetloader-2.0.0.jar"
+    - "influxdb-client-core-6.8.0.jar"
+    - "influxdb-client-java-6.8.0.jar"
+    - "influxdb-client-utils-6.8.0.jar"
+    - "influxdb-java-2.23.jar"
+    - "jsonloader-2.0.0.jar"
+    - "mongodbloader-2.0.0.jar"
+    - "ojdbc8-21.7.0.0.jar"
+    - "postgresql-42.7.2.jar"
+    - "security-postgres-2.0.0.jar"
+    - "serverscriptloader-2.0.0.jar"
+    - "unifiedlayer-2.0.0.jar"
 
 # Persistence configuration
 persistence:
@@ -111,7 +120,7 @@ persistence:
   accessModes:
     - ReadWriteOnce
   size: 10Gi
-  mountPath: /var/lib/aiv/drivers
+  mountPath: /var/lib/aiv
   annotations: {}
 
 # AI component configuration

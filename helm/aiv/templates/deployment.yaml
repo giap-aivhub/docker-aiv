@@ -29,8 +29,37 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
 
-      {{- if .Values.driver_updater.enabled }}
+
       initContainers:
+        {{- if .Values.persistence.enabled }}
+        - name: setup-volume
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # Create directory if it doesn't exist
+              mkdir -p /opt/data
+
+              # Check if destination already has data
+              if [ "$(ls -A /opt/data)" ]; then
+                echo "Data already exists in persistent volume at /opt/data. Skipping initialization."
+              else
+                echo "Persistent volume is empty. Initializing with default data..."
+                # Copy only if source directory has data
+                if [ "$(ls -A /var/lib/aiv)" ]; then
+                  echo "Copying default data to persistent volume..."
+                  cp -R /var/lib/aiv/* /opt/data/
+                  echo "Data initialization complete."
+                else
+                  echo "No data to copy from /var/lib/data."
+                fi
+              fi
+          volumeMounts:
+          - name: storage
+            mountPath: /opt/data
+          {{- end }}
+        {{- if .Values.driver_updater.enabled }}
         - name: driver-updater
           image: "{{ .Values.driver_updater.image.repository }}:{{ .Values.driver_updater.image.tag }}"
           imagePullPolicy: {{ .Values.driver_updater.image.pullPolicy | default "IfNotPresent" }}
