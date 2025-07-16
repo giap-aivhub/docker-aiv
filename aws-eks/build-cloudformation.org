@@ -363,10 +363,6 @@ volumeMounts:
   subPath: application.yml
   name: files
 
-- mountPath: /var/lib/aiv/repository/econfig/logback.xml
-  subPath: logback.xml
-  name: files
-
 files:
   application.yml: |
     server:
@@ -468,41 +464,6 @@ files:
     management.metrics.mongo.command.enabled: false
     management.metrics.mongo.connectionpool.enabled: false
 
-  logback.xml: |
-    <?xml version="1.0" encoding="UTF-8"?>
-    <configuration>
-      <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
-      <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
-      <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
-      <logger name="core" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <logger name="db" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <logger name="data" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <logger name="birt" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <logger name="rest" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <logger name="jasper" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-      <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-          <layout class="ch.qos.logback.classic.PatternLayout">
-              <Pattern>%d %p %c{1} [%t] %m%n</Pattern>
-          </layout>
-      </appender>
-      <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-      </root>
-
-    </configuration>
-
 persistence:
   enabled: true
   storageClassName: gp3
@@ -525,6 +486,10 @@ persistence:
 
 driver_updater:
   enabled: true
+
+persistence_logs:
+  enabled: false
+  size: 10Gi
 
 EOF
 #+end_src
