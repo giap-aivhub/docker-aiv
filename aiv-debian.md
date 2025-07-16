@@ -21,23 +21,22 @@ https://github.com/aiv-code/docker-aiv/releases
 
 - Install package
 ```
-dpkg -i avi_6.3.4_all.deb
+dpkg -i aiv_6.3.6_all.deb
 ```
 
 ## Configure the service
 ### PostgreSQL
-
 Assume we are having a PostgreSQL server with superuser permission. Let's create a credential and database for AIV.
 
 ```
 psql -U postgres
 
-CREATE USER avi WITH PASSWORD 'avi_password';
-CREATE DATABASE avi OWNER avi;
-GRANT ALL PRIVILEGES ON DATABASE avi TO avi;
+CREATE USER aiv WITH PASSWORD 'aiv_password';
+CREATE DATABASE aiv OWNER aiv;
+GRANT ALL PRIVILEGES ON DATABASE aiv TO aiv;
 
 ```
-- Update the postgresql connection at configuration file `/etc/avi/econfig/application.yml`
+- Update the postgresql connection at configuration file `/etc/aiv/econfig/application.yml`
 
 ```
 spring:
@@ -57,13 +56,15 @@ spring:
 ```
 
 ## Start the service
+
 ```
-systemctl start avi
+systemctl start aiv
 ```
 
 - Enable the service to start on boot
+
 ```
-systemctl enable avi
+systemctl enable aiv
 ```
 
 ## How to upgrade
@@ -73,16 +74,16 @@ https://github.com/aiv-code/docker-aiv/releases
 
 - Stop the service
 ```
-systemctl stop avi
+systemctl stop aiv
 ```
 
 - Install the new package
 
 ```
-dpkg -i avi_6.3.5_all.deb
+dpkg -i aiv_<version>_all.deb
 ```
 
 - Restart the service
 ```
-systemctl start avi
+systemctl start aiv
 ```

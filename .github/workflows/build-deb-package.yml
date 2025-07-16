@@ -13,8 +13,8 @@ jobs:
 
     - name: Get run.jar from Docker image
       run: |
-        docker pull jits023/aiv:6.3.4
-        docker create --name aiv_container jits023/aiv:6.3.4
+        docker pull jits023/aiv:6.3.6
+        docker create --name aiv_container jits023/aiv:6.3.6
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
 
@@ -23,7 +23,7 @@ jobs:
       env:
         TAG: ${{ github.ref_name }}
       run: |
-        VERSION=$(echo $TAG | sed 's/debian\///')
+        export VERSION=$(echo $TAG | sed 's/debian\///')
         echo "Building Debian package for version $VERSION"
         # Run in docker container for debian:12 to ensure a clean environment
         docker run --rm -e "VERSION=$VERSION" \
