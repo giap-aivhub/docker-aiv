@@ -121,9 +121,11 @@ spec:
                 name: {{ include "aiv.fullname" . }}
           {{- end }}
           volumeMounts:
+          {{- if not .Values.persistence_logs.enabled }}
           - mountPath: /var/lib/aiv/repository/econfig/logback.xml
             subPath: logback.xml
             name: files
+          {{- end }}
           {{- if .Values.volumeMounts }}
             {{- include "common.tplvalues.render" ( dict "value" .Values.volumeMounts "context" $ ) | nindent 10 }}
           {{- end }}
@@ -133,6 +135,10 @@ spec:
             {{- else if .Values.driver_updater.enabled }}
           - name: storage
             mountPath: {{ .Values.driver_updater.path }}
+          {{- end }}
+          {{- if .Values.persistence_logs.enabled }}
+          - name: logs
+            mountPath: /var/log/aiv
           {{- end }}
       volumes:
         - name: files
@@ -162,6 +168,11 @@ spec:
         {{- else if .Values.driver_updater.enabled }}
         - name: storage
           emptyDir: {}
+        {{- end }}
+        {{- if .Values.persistence_logs.enabled }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ include "aiv.fullname" . }}-logs
         {{- end }}
 
       {{- with .Values.nodeSelector }}

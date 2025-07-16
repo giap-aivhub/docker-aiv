@@ -84,6 +84,26 @@ persistence:
   mountPath: /var/lib/aiv
   annotations: {}
 
+persistence_logs:
+  enabled: false
+  storageClass:
+    create: false
+    name: gp3
+    provisioner: ebs.csi.eks.amazonaws.com
+    parameters:
+      type: gp3
+      fsType: ext4
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: true
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+
+  # storageClassName: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
 # AI component configuration
 ai:
   enabled: false

@@ -22,3 +22,30 @@ spec:
     requests:
       storage: {{ .Values.persistence.size | quote }}
 {{- end }}
+
+---
+{{- if .Values.persistence_logs.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aiv.fullname" . }}-logs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aiv.labels" . | nindent 4 }}
+  {{- with .Values.persistence_logs.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.persistence_logs.storageClassName }}
+  storageClassName: {{ .Values.persistence_logs.storageClassName }}
+  {{- end }}
+  accessModes:
+    {{- range .Values.persistence_logs.accessModes }}
+    - {{ . | quote }}
+    {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence_logs.size | quote }}
+{{- end }}
+
