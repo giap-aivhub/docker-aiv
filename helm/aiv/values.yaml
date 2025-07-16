@@ -21,47 +21,8 @@ command: []
 env: {}
 
 volumeMounts:
-- mountPath: /var/lib/aiv/repository/econfig/logback.xml
-  subPath: logback.xml
-  name: files
 
 files:
-  logback.xml: |
-    <?xml version="1.0" encoding="UTF-8"?>
-    <configuration>
-      <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
-      <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
-      <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
-
-      <logger name="core" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <logger name="db" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <logger name="data" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <logger name="birt" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <logger name="rest" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <logger name="jasper" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-      </logger>
-
-      <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-      </root>
-
-    </configuration>
 
 base64_files: {}
 

@@ -121,22 +121,23 @@ spec:
                 name: {{ include "aiv.fullname" . }}
           {{- end }}
           volumeMounts:
-            {{- if .Values.volumeMounts }}
+          - mountPath: /var/lib/aiv/repository/econfig/logback.xml
+            subPath: logback.xml
+            name: files
+          {{- if .Values.volumeMounts }}
             {{- include "common.tplvalues.render" ( dict "value" .Values.volumeMounts "context" $ ) | nindent 10 }}
-            {{- end }}
-            {{- if .Values.persistence.enabled }}
+          {{- end }}
+          {{- if .Values.persistence.enabled }}
           - name: storage
             mountPath: {{ .Values.persistence.mountPath }}
             {{- else if .Values.driver_updater.enabled }}
           - name: storage
             mountPath: {{ .Values.driver_updater.path }}
-            {{- end }}
+          {{- end }}
       volumes:
-        {{- if .Values.files }}
         - name: files
           configMap:
             name: {{ include "aiv.fullname" . }}-files
-        {{- end }}
 
         {{- if .Values.driver_updater.enabled }}
         - name: scripts

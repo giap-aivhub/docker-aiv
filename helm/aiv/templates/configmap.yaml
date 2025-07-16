@@ -1,4 +1,3 @@
-{{- if .Values.files }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -8,6 +7,43 @@ metadata:
 {{ include "aiv.labels" . | indent 4 }}
 
 data:
+  logback.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
+      <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
+      <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
+
+      <logger name="core" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <logger name="db" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <logger name="data" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <logger name="birt" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <logger name="rest" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <logger name="jasper" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+      </logger>
+
+      <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+      </root>
+
+    </configuration>
+{{- if .Values.files }}
 {{- range $path, $content := .Values.files }}
   {{ $path }}: |-
 {{ $content | indent 4 }}
