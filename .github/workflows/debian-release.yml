@@ -4,6 +4,12 @@ on:
   push:
     tags: [ 'debian/*' ]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
