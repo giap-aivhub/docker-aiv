@@ -37,3 +37,8 @@ docker-compose up
 
 ## Usage
 Once the containers are up and running, you can access the AIV Hub frontend by navigating to http://localhost:8080/aiv in your web browser.
+
+### Credentials
+`Admin/password (role: Admin)`
+
+`Demo/password (role: User)`

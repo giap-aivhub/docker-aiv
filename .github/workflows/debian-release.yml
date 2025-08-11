@@ -1,0 +1,46 @@
+name: Build Debian Package
+
+on:
+  push:
+    tags: [ 'debian/*' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Get run.jar from Docker image
+      if: startsWith(github.ref, 'refs/tags/debian/')
+      env:
+        TAG: ${{ github.ref_name }}
+      run: |
+        export VERSION=$(echo $TAG | sed 's/debian\///')
+        export IMAGE_VERSION=${VERSION%%-*}
+        docker pull jits023/aiv:${IMAGE_VERSION}
+        docker create --name aiv_container jits023/aiv:${IMAGE_VERSION}
+        docker cp aiv_container:/opt/run.jar aiv.jar
+        docker rm -f aiv_container
+
+    - name: Build debian package
+      if: startsWith(github.ref, 'refs/tags/debian/')
+      env:
+        TAG: ${{ github.ref_name }}
+      run: |
+        export VERSION=$(echo $TAG | sed 's/debian\///')
+        echo "Building Debian package for version $VERSION"
+        # Run in docker container for debian:12 to ensure a clean environment
+        docker run --rm -e "VERSION=$VERSION" \
+          -v $PWD:/workspace \
+          -w /workspace \
+          debian:12 \
+          bash -c "apt-get update && apt-get install -y debhelper && \
+                   DEBUG=1 bash aiv-build-deb.sh"
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
+      with:
+        files: |
+          aiv*.deb
