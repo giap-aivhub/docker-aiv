@@ -228,3 +228,4 @@ kubectl port-forward svc/aiv 8080:80
 ```
 
 - Access the AIV application in your web browser at `http://localhost:8080/aiv`
+
