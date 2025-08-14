@@ -60,6 +60,11 @@ helm install kafka bitnami/kafka -f values.kafka.yaml
 ```
 
 ## Install the AIV helm chart
+- Add aiv charts
+```
+helm repo add aiv-charts https://aiv-code.github.io/docker-aiv/
+```
+
 - Build the AIV helm chart values file
 ```sh
 cat > values.aiv.yaml <<EOF
@@ -219,8 +224,9 @@ EOF
 - Install the AIV helm chart with the values file
 
 ```sh
-helm install aiv ./aiv -f values.aiv.yaml
+helm install aiv aiv-charts/aiv -f values.aiv.yaml
 ```
+
 # Access the AIV application
 - Forward the AIV service port to your local machine
 ```

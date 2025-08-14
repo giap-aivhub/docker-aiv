@@ -4,7 +4,6 @@ name: Release Helm Chart
 on:
   push:
     branches:
-      - feat/helm
       - main
     paths:
       - 'helm/aiv/**'
