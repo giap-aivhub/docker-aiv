@@ -11,7 +11,7 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
   resources:
-    static-locations: classpath:/static/,file:///var/lib/aiv/repository/images/
+    static-locations: classpath:/static/,file:///opt/repository/images/
   jackson:
     serialization:
       WRITE_DATES_AS_TIMESTAMPS: false
@@ -62,11 +62,11 @@ datasources:
 app:
   slatKey: 0123456789abcdef
   ivspec: fedcba9876543210
-  imgLocation: /var/lib/aiv/repository/images/
-  appLocation: /var/lib/aiv/repository/APP/
-  repositoryLocation: /var/lib/aiv/repository
-  logDir: /var/log/aiv
-  deliveryLocation: /var/lib/aiv/repository/delivery
+  imgLocation: /opt/repository/images/
+  appLocation: /opt/repository/APP/
+  repositoryLocation: /opt/repository
+  logDir: /opt/logs
+  deliveryLocation: /opt/repository/delivery
   database: postgresql
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
