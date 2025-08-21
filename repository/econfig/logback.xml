@@ -3,7 +3,7 @@
     <springProperty scope="context" name="jsonlogs" source="app.logs.jsonlogs"/>
     <springProperty scope="context" name="showdept" source="app.logs.showdept"/>
     <springProperty scope="context" name="showtraceid" source="app.logs.showtraceid"/>
-     <property name="HOME_LOG" value="/var/log/aiv/logs/core.log"/>
+     <property name="HOME_LOG" value="/opt/logs/core.log"/>
     <appender name="CORE-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -19,7 +19,7 @@
     <logger name="core" level="INFO" additivity="false">
         <appender-ref ref="CORE-FILE-ROLLING"/>
     </logger>
-     <property name="HOME_LOG1" value="/var/log/aiv/db.log"/>
+     <property name="HOME_LOG1" value="/opt/db.log"/>
     <appender name="DB-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG1}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -35,7 +35,7 @@
     <logger name="db" level="INFO" additivity="false">
         <appender-ref ref="DB-FILE-ROLLING"/>
     </logger>
-    <property name="HOME_LOG2" value="/var/log/aiv/data.log"/>
+    <property name="HOME_LOG2" value="/opt/data.log"/>
     <appender name="DATA-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG2}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -52,7 +52,7 @@
         <appender-ref ref="DATA-FILE-ROLLING"/>
     </logger>
 
-    <property name="BIRT_LOG" value="/var/log/aiv/birtaiv.log"/>
+    <property name="BIRT_LOG" value="/opt/birtaiv.log"/>
     <appender name="BIRT-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${BIRT_LOG}</file>
 
@@ -72,7 +72,7 @@
         <appender-ref ref="BIRT-FILE-ROLLING"/>
     </logger>
 
-    <property name="REST_LOG" value="/var/log/aiv/rest.log"/>
+    <property name="REST_LOG" value="/opt/rest.log"/>
     <appender name="REST-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${REST_LOG}</file>
 
@@ -92,7 +92,7 @@
         <appender-ref ref="REST-FILE-ROLLING"/>
     </logger>
 
-    <property name="JASPER_LOG" value="/var/log/aiv/jasper.log"/>
+    <property name="JASPER_LOG" value="/opt/jasper.log"/>
     <appender name="JASPER-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${JASPER_LOG}</file>
 
@@ -113,7 +113,7 @@
     </logger>
     
 
-    <property name="HOME_LOG3" value="/var/log/aiv/all.log"/>
+    <property name="HOME_LOG3" value="/opt/all.log"/>
     <appender name="ALL-FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${HOME_LOG3}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
