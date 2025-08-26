@@ -14,6 +14,20 @@ cp -r ../repository/econfig/* repository/econfig/
 cp -r ../repository/Config/* repository/Config/
 cp -r ../repository/images/* repository/images/
 cp -r ../repository/Default/* repository/Default/
+
+# Create default config
+export aiv_base=/var/lib/aiv
+export aiv_db_url=jdbc:postgresql://localhost:5432/postgres
+export aiv_db_user=postgres
+export aiv_db_password=postgres
+export security_db_url=jdbc:postgresql://localhost:5432/postgres?currentSchema=security
+export security_db_user=postgres
+export security_db_password=postgres
+envsubst < ../repository/econfig/application.yml > repository/econfig/application.yml
+sed -i 's,logDir: /var/lib/aiv/logs,logDir: /var/log/aiv,g' repository/econfig/application.yml
+sed -i 's,/opt/logs,/var/log/aiv,g' repository/econfig/logback.xml
+
+# Create debian folder
 mkdir debian
 cp -r ../debian/* debian/ -av
 
