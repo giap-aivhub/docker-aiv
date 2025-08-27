@@ -71,6 +71,7 @@ app:
   securityClass: com.security.services.SimpleAuthImpl #com.simple.services.SimpleAuthImpl/com.utility.JiraAuthImpl
   isJira: false
   noofreports: 10
+  ssoredirect: false # ture is we use external logout
   task:
     kafka:
       retention.ms: 60000
