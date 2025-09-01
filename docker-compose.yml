@@ -38,7 +38,7 @@ services:
   aiv: 
     platform: linux/amd64
     container_name: aiv
-    image: jits023/aiv:6.3.8
+    image: aivhub/aiv:6.3.8
     command: >
       /bin/bash -c '
       if [ ! -f "/opt/repository/econfig/application.yml" ]; then
@@ -78,7 +78,7 @@ services:
 
   aiv-ai: 
     container_name: aiv-ai
-    image: jits023/aiv-ai:6.3.0
+    image: aivhub/aiv-ai:6.3.0
     ports: 
       - "8001:8001"
     environment:
