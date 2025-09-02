@@ -1,10 +1,10 @@
 Source: aiv
 Section: java
 Priority: optional
-Maintainer: Your Name <your.email@example.com>
+Maintainer: Bot Action <bot@aivhub.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.5.1
-Homepage: https://example.com
+Homepage: https://aivhub.com
 
 Package: aiv
 Architecture: all
