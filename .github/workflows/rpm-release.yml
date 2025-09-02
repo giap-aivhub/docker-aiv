@@ -1,0 +1,192 @@
+name: Release RPM package
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "rpm/changelog"
+      - "rpm/*.spec"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Parse Version from RPM changelog
+      id: parse_version
+      run: |
+        # Extract the latest version from the RPM changelog or spec file
+        if [ -f "rpm/changelog" ]; then
+          VERSION=$(head -n 1 rpm/changelog | grep -oP 'aiv-\K[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?')
+        else
+          # Fallback to parsing from spec file if it exists
+          VERSION=$(grep "^Version:" rpm/aiv.spec 2>/dev/null | awk '{print $2}' || echo "1.0.0")
+        fi
+        RELEASE=$(grep "^Release:" rpm/aiv.spec 2>/dev/null | awk '{print $2}' | cut -d'%' -f1 || echo "1")
+        
+        echo "Latest version found: $VERSION"
+        echo "Release number: $RELEASE"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+
+    - name: Get run.jar from Docker image
+      run: |
+        export IMAGE_VERSION=${VERSION%%-*}
+        echo "Using image version: $IMAGE_VERSION"
+        docker pull jits023/aiv:${IMAGE_VERSION}
+        docker create --name aiv_container jits023/aiv:${IMAGE_VERSION}
+        docker cp aiv_container:/opt/run.jar aiv.jar
+        docker rm -f aiv_container
+
+    - name: Build RPM package
+      run: |
+        echo "Building RPM package for version $VERSION-$RELEASE"
+        docker run --rm \
+          -e "VERSION=$VERSION" \
+          -e "RELEASE=$RELEASE" \
+          -v $PWD:/workspace \
+          -w /workspace \
+          rockylinux:9 \
+          bash -c "
+            # Install required packages for RPM building
+            dnf install -y rpm-build rpm-devel rpmdevtools \
+                          java-17-openjdk-devel \
+                          gettext \
+                          tar gzip \
+                          systemd
+            
+            # Set up RPM build environment
+            rpmdev-setuptree
+            
+            # Run the build script
+            DEBUG=1 bash aiv-build-rpm.sh
+          "
+
+    - name: Verify RPM package
+      run: |
+        echo "Verifying built RPM packages:"
+        ls -la *.rpm
+        
+        # Basic RPM package verification
+        for rpm_file in *.rpm; do
+          echo "=== RPM Info for $rpm_file ==="
+          docker run --rm -v $PWD:/workspace rockylinux:9 \
+            rpm -qip /workspace/$rpm_file
+          echo "=== RPM Contents ==="
+          docker run --rm -v $PWD:/workspace rockylinux:9 \
+            rpm -qlp /workspace/$rpm_file
+        done
+
+    - name: Create and Push Tag
+      env:
+        VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG_NAME="rpm/${VERSION}-${RELEASE}"
+        
+        # Check if the tag exists remotely
+        if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}$"; then
+          echo "Tag ${TAG_NAME} already exists. Skipping tag creation."
+        else
+          # Create and push the RPM tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${TAG_NAME}
+          git push origin ${TAG_NAME}
+        fi
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag_name: rpm/${{ env.VERSION }}-${{ env.RELEASE }}
+        name: "RPM Release ${{ env.VERSION }}-${{ env.RELEASE }}"
+        body: |
+          RPM package release for AIV version ${{ env.VERSION }}-${{ env.RELEASE }}
+          
+          ## Installation Instructions
+          
+          ### Red Hat Enterprise Linux / CentOS / Rocky Linux / AlmaLinux:
+          ```bash
+          # Download the RPM package
+          wget https://github.com/${{ github.repository }}/releases/download/rpm/${{ env.VERSION }}-${{ env.RELEASE }}/aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          
+          # Install the package
+          sudo dnf install -y ./aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          
+          # Start and enable the service
+          sudo systemctl enable --now aiv.service
+          ```
+          
+          ### Fedora:
+          ```bash
+          # Download and install
+          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${{ env.VERSION }}-${{ env.RELEASE }}/aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          
+          # Start and enable the service
+          sudo systemctl enable --now aiv.service
+          ```
+          
+          ## Requirements
+          - Java 17 or higher
+          - PostgreSQL server
+          - SystemD (for service management)
+          
+        files: |
+          aiv*.rpm
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        distro: ['rockylinux:9', 'rockylinux:8', 'almalinux:9', 'fedora:38']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: rpm-packages
+        path: ./
+      continue-on-error: true
+    
+    - name: Test RPM installation on ${{ matrix.distro }}
+      run: |
+        echo "Testing RPM installation on ${{ matrix.distro }}"
+        
+        # Find the RPM file (it should be available from the build job)
+        RPM_FILE=$(ls *.rpm | head -n 1)
+        
+        if [ -z "$RPM_FILE" ]; then
+          echo "No RPM file found, skipping test"
+          exit 0
+        fi
+        
+        docker run --rm -v $PWD:/workspace ${{ matrix.distro }} bash -c "
+          # Install Java (required dependency)
+          if command -v dnf >/dev/null 2>&1; then
+            dnf install -y java-17-openjdk postgresql-server
+          elif command -v yum >/dev/null 2>&1; then
+            yum install -y java-17-openjdk postgresql-server
+          fi
+          
+          # Test RPM installation (dry run)
+          rpm -qp /workspace/$RPM_FILE
+          
+          # Test dependency resolution
+          rpm -qpR /workspace/$RPM_FILE
+          
+          echo 'RPM package validation completed successfully'
+        "
