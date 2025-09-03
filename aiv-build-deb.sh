@@ -23,6 +23,7 @@ export aiv_db_password=postgres
 export security_db_url=jdbc:postgresql://localhost:5432/postgres?currentSchema=security
 export security_db_user=postgres
 export security_db_password=postgres
+export aiv_port=8080
 envsubst < ../repository/econfig/application.yml > repository/econfig/application.yml
 sed -i 's,logDir: /var/lib/aiv/logs,logDir: /var/log/aiv,g' repository/econfig/application.yml
 sed -i 's,/opt/logs,/var/log/aiv,g' repository/econfig/logback.xml

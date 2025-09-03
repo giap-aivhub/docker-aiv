@@ -17,18 +17,19 @@ mkdir -p aiv-${VERSION}
 cd aiv-${VERSION}
 
 # Create application directory structure
-mkdir -p opt/aiv/{config/drivers,repository/{econfig,Config,images,Default}}
-mkdir -p var/lib/aiv
+mkdir -p usr/bin
+mkdir -p var/lib/aiv/{drivers,repository/{econfig,Config,images,Default}}
 mkdir -p var/log/aiv
 mkdir -p etc/systemd/system
 
 # Copy necessary application files
-cp ../aiv.jar opt/aiv/
-cp -r ../config/drivers/* opt/aiv/config/drivers/
-cp -r ../repository/econfig/* opt/aiv/repository/econfig/
-cp -r ../repository/Config/* opt/aiv/repository/Config/
-cp -r ../repository/images/* opt/aiv/repository/images/
-cp -r ../repository/Default/* opt/aiv/repository/Default/
+cp ../debian/bin/aiv usr/bin/
+cp ../aiv.jar var/lib/aiv/
+cp -r ../config/drivers/* var/lib/aiv/drivers/
+cp -r ../repository/econfig/* var/lib/aiv/repository/econfig/
+cp -r ../repository/Config/* var/lib/aiv/repository/Config/
+cp -r ../repository/images/* var/lib/aiv/repository/images/
+cp -r ../repository/Default/* var/lib/aiv/repository/Default/
 
 # Create default configuration with environment variable substitution
 export aiv_base=/var/lib/aiv
@@ -38,35 +39,32 @@ export aiv_db_password=postgres
 export security_db_url=jdbc:postgresql://localhost:5432/postgres?currentSchema=security
 export security_db_user=postgres
 export security_db_password=postgres
+export aiv_port=8080
 
 # Apply configuration templates
-envsubst < ../repository/econfig/application.yml > opt/aiv/repository/econfig/application.yml
-sed -i 's,logDir: /var/lib/aiv/logs,logDir: /var/log/aiv,g' opt/aiv/repository/econfig/application.yml
-sed -i 's,/opt/logs,/var/log/aiv,g' opt/aiv/repository/econfig/logback.xml
+envsubst < ../repository/econfig/application.yml > var/lib/aiv/repository/econfig/application.yml
+sed -i 's,logDir: /var/lib/aiv/logs,logDir: /var/log/aiv,g' var/lib/aiv/repository/econfig/application.yml
+sed -i 's,/opt/logs,/var/log/aiv,g' var/lib/aiv/repository/econfig/logback.xml
 
 # Create systemd service file
 cat > etc/systemd/system/aiv.service << 'EOF'
 [Unit]
 Description=AIV Application Service
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target
 
 [Service]
 Type=simple
 User=aiv
 Group=aiv
-WorkingDirectory=/opt/aiv
-ExecStart=/usr/bin/java -jar /opt/aiv/aiv.jar
-Restart=always
+ExecStart=/usr/bin/aiv
+WorkingDirectory=/var/lib/aiv
+Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
 # Environment variables
 Environment=JAVA_OPTS="-Xmx2g -Xms512m"
-Environment=AIV_HOME=/opt/aiv
-Environment=AIV_DATA=/var/lib/aiv
-Environment=AIV_LOGS=/var/log/aiv
 
 [Install]
 WantedBy=multi-user.target
@@ -88,7 +86,6 @@ Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 Requires:       java-17-openjdk
-Requires:       postgresql-server
 Requires:       systemd
 
 %description
@@ -105,18 +102,20 @@ This package contains the AIV application server and related components.
 rm -rf %{buildroot}
 
 # Create directory structure
-mkdir -p %{buildroot}/opt/aiv
+mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}/var/lib/aiv
 mkdir -p %{buildroot}/var/log/aiv
 mkdir -p %{buildroot}/etc/systemd/system
 
 # Copy application files
-cp -r opt/aiv/* %{buildroot}/opt/aiv/
+cp usr/bin/aiv %{buildroot}/usr/bin/
+cp -r var/lib/aiv/* %{buildroot}/var/lib/aiv/
 cp etc/systemd/system/aiv.service %{buildroot}/etc/systemd/system/
 
 %files
 %defattr(-,root,root,-)
-/opt/aiv/
+/usr/bin/aiv
+/var/lib/aiv/
 /etc/systemd/system/aiv.service
 %attr(755,aiv,aiv) /var/lib/aiv
 %attr(755,aiv,aiv) /var/log/aiv
@@ -124,7 +123,7 @@ cp etc/systemd/system/aiv.service %{buildroot}/etc/systemd/system/
 %pre
 # Create aiv user and group if they don't exist
 getent group aiv >/dev/null || groupadd -r aiv
-getent passwd aiv >/dev/null || useradd -r -g aiv -d /opt/aiv -s /bin/false aiv
+getent passwd aiv >/dev/null || useradd -r -g aiv -d /var/lib/aiv -s /bin/false aiv
 
 %post
 # Reload systemd and enable service
@@ -132,7 +131,6 @@ systemctl daemon-reload
 systemctl enable aiv.service
 
 # Set proper ownership
-chown -R aiv:aiv /opt/aiv
 chown -R aiv:aiv /var/lib/aiv
 chown -R aiv:aiv /var/log/aiv
 
