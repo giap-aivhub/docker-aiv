@@ -35,7 +35,7 @@ jobs:
         echo "Parsed version: $IMAGE_VERSION"
         echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
 
-    - name: Check the VERSION is not exist in tag `rpm/*`
+    - name: Determine Release Number
       # if the tag already exists, get last release number and increment it. Example tags: `rpm/6.3.8-1`, `rpm/6.3.8-2`
       env:
         IMAGE_VERSION: ${{ env.IMAGE_VERSION }}
@@ -108,23 +108,25 @@ jobs:
         git push origin ${TAG_NAME}
 
     - name: Release
+      env:
+        VERSION: ${{ env.VERSION }}
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: rpm/${{ env.VERSION }}-${{ env.RELEASE }}
-        name: "RPM Release ${{ env.VERSION }}-${{ env.RELEASE }}"
+        tag_name: rpm/${VERSION}
+        name: "RPM Release ${VERSION}"
         body: |
-          RPM package release for AIV version ${{ env.VERSION }}-${{ env.RELEASE }}
+          RPM package release for AIV version ${VERSION}
           
           ## Installation Instructions
           
           ### Red Hat Enterprise Linux / CentOS / Rocky Linux / AlmaLinux:
           ```bash
-          # Download the RPM package
-          wget https://github.com/${{ github.repository }}/releases/download/rpm/${{ env.VERSION }}-${{ env.RELEASE }}/aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          # Download the RPM package from GitHub Releases
+          wget https://github.com/${{ github.repository }}/releases
           
           # Install the package
-          sudo dnf install -y ./aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          sudo dnf install -y ./aiv-${VERSION}.*.rpm
           
           # Start and enable the service
           sudo systemctl enable --now aiv.service
@@ -133,7 +135,7 @@ jobs:
           ### Fedora:
           ```bash
           # Download and install
-          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${{ env.VERSION }}-${{ env.RELEASE }}/aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
+          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${VERSION}/aiv-${VERSION}.*.rpm
           
           # Start and enable the service
           sudo systemctl enable --now aiv.service
@@ -142,7 +144,7 @@ jobs:
           ## Requirements
           - Java 17 or higher
           - PostgreSQL server
-          - SystemD (for service management)
+          - systemd (for service management)
           
         files: |
           aiv*.rpm
