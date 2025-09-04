@@ -107,6 +107,7 @@ jobs:
     - name: Release
       env:
         VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
