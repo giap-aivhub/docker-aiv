@@ -15,29 +15,60 @@ permissions:
 
 jobs:
   build:
+    if: contains(github.event.head_commit.message, '!Release') && contains(github.event.head_commit.message, 'deb')
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
 
-    - name: Parse Version from debian/changelog
+    - name: Fetch all tags
+      run: git fetch --tags
+
+    - name: Parse Version from docker-compose.yml
       id: parse_version
       run: |
-        # Extract the latest version from the changelog
-        VERSION=$(awk '/^aiv / {gsub(/[()]/, "", $2); print $2; exit}' debian/changelog)
-        echo "Latest version found in changelog: $VERSION"
+        # Extract the latest version from the docker-compose line "image: aivhub/aiv:6.3.8"
+        VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
+        if [[ -z "$VERSION" ]]; then
+          echo "Error: Could not parse version from docker-compose.yml"
+          exit 1
+        fi
+        echo "Parsed version: $VERSION"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-    - name: Get run.jar from Docker image
+    - name: Determine Release Number
+      # if the tag already exists, get last release number and increment it. Example tags: `deb/6.3.8-1`, `deb/6.3.8-2`
+      env:
+        VERSION: ${{ env.VERSION }}
       run: |
-        export IMAGE_VERSION=${VERSION%%-*}
-        echo "Using image version: $IMAGE_VERSION"
-        docker pull jits023/aiv:${IMAGE_VERSION}
-        docker create --name aiv_container jits023/aiv:${IMAGE_VERSION}
+        if git ls-remote --tags origin | grep -q "refs/tags/deb/${VERSION}"; then
+          echo "Tag deb/${VERSION}-* already exists. Finding the latest release number."
+          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/deb/${VERSION}-" | sed "s/.*deb\/${VERSION}-//" | sort -V | tail -n1)
+          if [[ -z "$LATEST_RELEASE" ]]; then
+            LATEST_RELEASE=0
+          fi
+          RELEASE=$((LATEST_RELEASE + 1))
+          echo "Incremented release number to $RELEASE"
+        else
+          echo "No existing tags found for version ${VERSION}. Setting release number to 0."
+          RELEASE=0
+        fi
+        echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+        echo "Using release number: $RELEASE"
+
+    - name: Get run.jar from Docker image
+      env:
+        VERSION: ${{ env.VERSION }}
+      run: |
+        echo "Using image version: $VERSION"
+        docker pull aivhub/aiv:${VERSION}
+        docker create --name aiv_container aivhub/aiv:${VERSION}
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
 
     - name: Build Debian package
+      env:
+        VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
       run: |
         echo "Building Debian package for version $VERSION"
         docker run --rm -e "VERSION=$VERSION" \
@@ -45,28 +76,24 @@ jobs:
           -w /workspace \
           debian:12 \
           bash -c "apt-get update && apt-get install -y debhelper && \
-                   DEBUG=1 bash aiv-build-deb.sh"
+                   bash aiv-build-deb.sh"
 
     - name: Create and Push Tag
       env:
         VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Check if the tag exists remotely
-        if git ls-remote --tags origin | grep -q "refs/tags/deb/$VERSION$"; then
-          echo "Tag deb/$VERSION already exists. Skipping tag creation."
-        else
-          # Create and push the debian tag
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag deb/$VERSION
-          git push origin deb/$VERSION
-        fi
+        TAG_NAME=deb/${VERSION}-${RELEASE}
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag ${TAG_NAME}
+        git push origin ${TAG_NAME}
 
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: deb/${{ env.VERSION }}
+        tag_name: deb/${{ env.VERSION }}-${{ env.RELEASE }}
         files: |
           aiv*.deb

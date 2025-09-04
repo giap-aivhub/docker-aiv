@@ -57,7 +57,7 @@ jobs:
         VERSION: ${{ env.VERSION }}
       run: |
         echo "Using image version: $VERSION"
-        docker pull jits023/aiv:${VERSION}
+        docker pull aivhub/aiv:${VERSION}
         docker create --name aiv_container aivhub/aiv:${VERSION}
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
