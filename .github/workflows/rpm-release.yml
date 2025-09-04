@@ -2,9 +2,6 @@ name: Release RPM package
 
 on:
   push:
-    branches:
-      - main
-
   workflow_dispatch:
 
 permissions:
@@ -15,8 +12,8 @@ permissions:
 
 jobs:
   build:
+    if: contains(github.event.head_commit.message, '!Release') && contains(github.event.head_commit.message, 'rpm')
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
 
