@@ -3,7 +3,7 @@
 [ "${DEBUG:-0}" -eq 0 ] || set -x
 
 export VERSION=${VERSION:-1.0.0}
-export RELEASE=${RELEASE:-1}
+export RELEASE=${RELEASE:-0}
 
 # Clean up any existing build directories
 rm -rf ~/rpmbuild
@@ -155,7 +155,7 @@ fi
 rm -rf %{buildroot}
 
 %changelog
-* $(date +'%a %b %d %Y') GitHub Actions <github-actions@users.noreply.github.com> - ${VERSION}-${RELEASE}
+* $(date +'%a %b %d %Y') GitHub Actions <github-actions@users.noreply.github.com> - ${RELEASE}
 - Automated build from GitHub Actions
 
 EOF
@@ -164,7 +164,7 @@ EOF
 rpmbuild -ba ~/rpmbuild/SPECS/aiv.spec
 
 # Copy the built RPM to current directory
-cp ~/rpmbuild/RPMS/noarch/aiv-${VERSION}-${RELEASE}*.rpm ./
+cp ~/rpmbuild/RPMS/noarch/aiv-${VERSION}*.rpm ./
 
 echo "RPM package built successfully:"
 ls -la *.rpm

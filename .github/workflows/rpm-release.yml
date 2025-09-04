@@ -27,54 +27,52 @@ jobs:
       id: parse_version
       run: |
         # Extract the latest version from the docker-compose line "image: aivhub/aiv:6.3.8"
-        IMAGE_VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
-        if [[ -z "$IMAGE_VERSION" ]]; then
+        VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
+        if [[ -z "$VERSION" ]]; then
           echo "Error: Could not parse version from docker-compose.yml"
           exit 1
         fi
-        echo "Parsed version: $IMAGE_VERSION"
-        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
+        echo "Parsed version: $VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Determine Release Number
       # if the tag already exists, get last release number and increment it. Example tags: `rpm/6.3.8-1`, `rpm/6.3.8-2`
       env:
-        IMAGE_VERSION: ${{ env.IMAGE_VERSION }}
+        VERSION: ${{ env.VERSION }}
       run: |
-        if git ls-remote --tags origin | grep -q "refs/tags/rpm/${IMAGE_VERSION}"; then
-          echo "Tag rpm/${IMAGE_VERSION}-* already exists. Finding the latest release number."
-          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/rpm/${IMAGE_VERSION}-" | sed "s/.*debian\/${IMAGE_VERSION}-//" | sort -V | tail -n1)
+        if git ls-remote --tags origin | grep -q "refs/tags/rpm/${VERSION}"; then
+          echo "Tag rpm/${VERSION}-* already exists. Finding the latest release number."
+          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/rpm/${VERSION}-" | sed "s/.*debian\/${VERSION}-//" | sort -V | tail -n1)
           if [[ -z "$LATEST_RELEASE" ]]; then
             LATEST_RELEASE=0
           fi
           RELEASE=$((LATEST_RELEASE + 1))
           echo "Incremented release number to $RELEASE"
         else
-          echo "No existing tags found for version ${IMAGE_VERSION}. Setting release number to 0."
+          echo "No existing tags found for version ${VERSION}. Setting release number to 0."
           RELEASE=0
         fi
 
-        # Build release version string
-        if [[ "$RELEASE" -eq 0 ]]; then
-          VERSION="$IMAGE_VERSION"
-        else
-          VERSION="${IMAGE_VERSION}-${RELEASE}"
         fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "Using release version: $VERSION"
+        echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+        echo "Using release number: $RELEASE"
 
     - name: Get run.jar from Docker image
       env:
-        IMAGE_VERSION: ${{ env.IMAGE_VERSION }}
+        VERSION: ${{ env.VERSION }}
       run: |
-        echo "Using image version: $IMAGE_VERSION"
-        docker pull jits023/aiv:${IMAGE_VERSION}
-        docker create --name aiv_container aivhub/aiv:${IMAGE_VERSION}
+        echo "Using image version: $VERSION"
+        docker pull jits023/aiv:${VERSION}
+        docker create --name aiv_container aivhub/aiv:${VERSION}
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
 
     - name: Build RPM package
+      env:
+        VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
       run: |
-        echo "Building RPM package for version ${VERSION}"
+        echo "Building RPM package for version ${VERSION}-${RELEASE}"
         docker run --rm \
           -e "VERSION=$VERSION" \
           -e "RELEASE=$RELEASE" \
@@ -99,9 +97,10 @@ jobs:
     - name: Create and Push Tag
       env:
         VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        TAG_NAME=rpm/${VERSION}
+        TAG_NAME=rpm/${VERSION}-${RELEASE}
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git tag ${TAG_NAME}
@@ -113,10 +112,10 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: rpm/${VERSION}
-        name: "RPM Release ${VERSION}"
+        tag_name: rpm/${VERSION}-${RELEASE}
+        name: "RPM Release ${VERSION}-${RELEASE}"
         body: |
-          RPM package release for AIV version ${VERSION}
+          RPM package release for AIV version ${VERSION}-${RELEASE}
           
           ## Installation Instructions
           
@@ -126,7 +125,7 @@ jobs:
           wget https://github.com/${{ github.repository }}/releases
           
           # Install the package
-          sudo dnf install -y ./aiv-${VERSION}.*.rpm
+          sudo dnf install -y ./aiv-${VERSION}-${RELEASE}.*.rpm
           
           # Start and enable the service
           sudo systemctl enable --now aiv.service
@@ -135,7 +134,7 @@ jobs:
           ### Fedora:
           ```bash
           # Download and install
-          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${VERSION}/aiv-${VERSION}.*.rpm
+          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${VERSION}-${RELEASE}/aiv-${VERSION}-${RELEASE}.*.rpm
           
           # Start and enable the service
           sudo systemctl enable --now aiv.service
