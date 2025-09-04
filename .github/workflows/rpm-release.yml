@@ -42,7 +42,7 @@ jobs:
       run: |
         if git ls-remote --tags origin | grep -q "refs/tags/rpm/${VERSION}"; then
           echo "Tag rpm/${VERSION}-* already exists. Finding the latest release number."
-          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/rpm/${VERSION}-" | sed "s/.*debian\/${VERSION}-//" | sort -V | tail -n1)
+          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/rpm/${VERSION}-" | sed "s/.*rpm\/${VERSION}-//" | sort -V | tail -n1)
           if [[ -z "$LATEST_RELEASE" ]]; then
             LATEST_RELEASE=0
           fi
@@ -89,7 +89,7 @@ jobs:
             rpmdev-setuptree
             
             # Run the build script
-            DEBUG=1 bash aiv-build-rpm.sh
+            bash aiv-build-rpm.sh
           "
 
     - name: Create and Push Tag
