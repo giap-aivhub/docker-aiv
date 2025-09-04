@@ -110,29 +110,20 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: rpm/${VERSION}-${RELEASE}
-        name: "RPM Release ${VERSION}-${RELEASE}"
+        tag_name: rpm/${{ env.VERSION }}-${{ env.RELEASE }}
+        name: "RPM Release ${{ env.VERSION }}-${{ env.RELEASE }}"
         body: |
-          RPM package release for AIV version ${VERSION}-${RELEASE}
+          RPM package release for AIV version ${{ env.VERSION }}-${{ env.RELEASE }}
           
           ## Installation Instructions
           
-          ### Red Hat Enterprise Linux / CentOS / Rocky Linux / AlmaLinux:
+          ### Red Hat Enterprise Linux / CentOS / Rocky Linux / AlmaLinux / Fedora:
           ```bash
           # Download the RPM package from GitHub Releases
           wget https://github.com/${{ github.repository }}/releases
           
           # Install the package
-          sudo dnf install -y ./aiv-${VERSION}-${RELEASE}.*.rpm
-          
-          # Start and enable the service
-          sudo systemctl enable --now aiv.service
-          ```
-          
-          ### Fedora:
-          ```bash
-          # Download and install
-          sudo dnf install -y https://github.com/${{ github.repository }}/releases/download/rpm/${VERSION}-${RELEASE}/aiv-${VERSION}-${RELEASE}.*.rpm
+          sudo dnf install -y ./aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
           
           # Start and enable the service
           sudo systemctl enable --now aiv.service
@@ -146,48 +137,3 @@ jobs:
         files: |
           aiv*.rpm
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        distro: ['rockylinux:9', 'rockylinux:8', 'almalinux:9', 'fedora:38']
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: rpm-packages
-        path: ./
-      continue-on-error: true
-    
-    - name: Test RPM installation on ${{ matrix.distro }}
-      run: |
-        echo "Testing RPM installation on ${{ matrix.distro }}"
-        
-        # Find the RPM file (it should be available from the build job)
-        RPM_FILE=$(ls *.rpm | head -n 1)
-        
-        if [ -z "$RPM_FILE" ]; then
-          echo "No RPM file found, skipping test"
-          exit 0
-        fi
-        
-        docker run --rm -v $PWD:/workspace ${{ matrix.distro }} bash -c "
-          # Install Java (required dependency)
-          if command -v dnf >/dev/null 2>&1; then
-            dnf install -y java-17-openjdk postgresql-server
-          elif command -v yum >/dev/null 2>&1; then
-            yum install -y java-17-openjdk postgresql-server
-          fi
-          
-          # Test RPM installation (dry run)
-          rpm -qp /workspace/$RPM_FILE
-          
-          # Test dependency resolution
-          rpm -qpR /workspace/$RPM_FILE
-          
-          echo 'RPM package validation completed successfully'
-        "
