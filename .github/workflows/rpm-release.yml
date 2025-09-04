@@ -52,8 +52,6 @@ jobs:
           echo "No existing tags found for version ${VERSION}. Setting release number to 0."
           RELEASE=0
         fi
-
-        fi
         echo "RELEASE=$RELEASE" >> $GITHUB_ENV
         echo "Using release number: $RELEASE"
 
