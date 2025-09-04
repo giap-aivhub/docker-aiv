@@ -53,20 +53,20 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Check if the tag exists remotely
-        if git ls-remote --tags origin | grep -q "refs/tags/debian/$VERSION$"; then
-          echo "Tag debian/$VERSION already exists. Skipping tag creation."
+        if git ls-remote --tags origin | grep -q "refs/tags/deb/$VERSION$"; then
+          echo "Tag deb/$VERSION already exists. Skipping tag creation."
         else
           # Create and push the debian tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag debian/$VERSION
-          git push origin debian/$VERSION
+          git tag deb/$VERSION
+          git push origin deb/$VERSION
         fi
 
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: debian/${{ env.VERSION }}
+        tag_name: deb/${{ env.VERSION }}
         files: |
           aiv*.deb

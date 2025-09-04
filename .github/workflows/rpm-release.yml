@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "rpm/changelog"
-      - "rpm/*.spec"
+
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,35 +20,61 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Parse Version from RPM changelog
+    - name: Fetch all tags
+      run: git fetch --tags
+
+    - name: Parse Version from docker-compose.yml
       id: parse_version
       run: |
-        # Extract the latest version from the RPM changelog or spec file
-        if [ -f "rpm/changelog" ]; then
-          VERSION=$(head -n 1 rpm/changelog | grep -oP 'aiv-\K[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?')
-        else
-          # Fallback to parsing from spec file if it exists
-          VERSION=$(grep "^Version:" rpm/aiv.spec 2>/dev/null | awk '{print $2}' || echo "1.0.0")
+        # Extract the latest version from the docker-compose line "image: aivhub/aiv:6.3.8"
+        IMAGE_VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
+        if [[ -z "$IMAGE_VERSION" ]]; then
+          echo "Error: Could not parse version from docker-compose.yml"
+          exit 1
         fi
-        RELEASE=$(grep "^Release:" rpm/aiv.spec 2>/dev/null | awk '{print $2}' | cut -d'%' -f1 || echo "1")
-        
-        echo "Latest version found: $VERSION"
-        echo "Release number: $RELEASE"
+        echo "Parsed version: $IMAGE_VERSION"
+        echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
+
+    - name: Check the VERSION is not exist in tag `rpm/*`
+      # if the tag already exists, get last release number and increment it. Example tags: `rpm/6.3.8-1`, `rpm/6.3.8-2`
+      env:
+        IMAGE_VERSION: ${{ env.IMAGE_VERSION }}
+      run: |
+        if git ls-remote --tags origin | grep -q "refs/tags/rpm/${IMAGE_VERSION}"; then
+          echo "Tag rpm/${IMAGE_VERSION}-* already exists. Finding the latest release number."
+          LATEST_RELEASE=$(git ls-remote --tags origin | grep "refs/tags/rpm/${IMAGE_VERSION}-" | sed "s/.*debian\/${IMAGE_VERSION}-//" | sort -V | tail -n1)
+          if [[ -z "$LATEST_RELEASE" ]]; then
+            LATEST_RELEASE=0
+          fi
+          RELEASE=$((LATEST_RELEASE + 1))
+          echo "Incremented release number to $RELEASE"
+        else
+          echo "No existing tags found for version ${IMAGE_VERSION}. Setting release number to 0."
+          RELEASE=0
+        fi
+
+        # Build release version string
+        if [[ "$RELEASE" -eq 0 ]]; then
+          VERSION="$IMAGE_VERSION"
+        else
+          VERSION="${IMAGE_VERSION}-${RELEASE}"
+        fi
         echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+        echo "Using release version: $VERSION"
 
     - name: Get run.jar from Docker image
+      env:
+        IMAGE_VERSION: ${{ env.IMAGE_VERSION }}
       run: |
-        export IMAGE_VERSION=${VERSION%%-*}
         echo "Using image version: $IMAGE_VERSION"
         docker pull jits023/aiv:${IMAGE_VERSION}
-        docker create --name aiv_container jits023/aiv:${IMAGE_VERSION}
+        docker create --name aiv_container aivhub/aiv:${IMAGE_VERSION}
         docker cp aiv_container:/opt/run.jar aiv.jar
         docker rm -f aiv_container
 
     - name: Build RPM package
       run: |
-        echo "Building RPM package for version $VERSION-$RELEASE"
+        echo "Building RPM package for version ${VERSION}"
         docker run --rm \
           -e "VERSION=$VERSION" \
           -e "RELEASE=$RELEASE" \
@@ -71,39 +96,16 @@ jobs:
             DEBUG=1 bash aiv-build-rpm.sh
           "
 
-    - name: Verify RPM package
-      run: |
-        echo "Verifying built RPM packages:"
-        ls -la *.rpm
-        
-        # Basic RPM package verification
-        for rpm_file in *.rpm; do
-          echo "=== RPM Info for $rpm_file ==="
-          docker run --rm -v $PWD:/workspace rockylinux:9 \
-            rpm -qip /workspace/$rpm_file
-          echo "=== RPM Contents ==="
-          docker run --rm -v $PWD:/workspace rockylinux:9 \
-            rpm -qlp /workspace/$rpm_file
-        done
-
     - name: Create and Push Tag
       env:
         VERSION: ${{ env.VERSION }}
-        RELEASE: ${{ env.RELEASE }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        TAG_NAME="rpm/${VERSION}-${RELEASE}"
-        
-        # Check if the tag exists remotely
-        if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}$"; then
-          echo "Tag ${TAG_NAME} already exists. Skipping tag creation."
-        else
-          # Create and push the RPM tag
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${TAG_NAME}
-          git push origin ${TAG_NAME}
-        fi
+        TAG_NAME=rpm/${VERSION}
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag ${TAG_NAME}
+        git push origin ${TAG_NAME}
 
     - name: Release
       uses: softprops/action-gh-release@v2
