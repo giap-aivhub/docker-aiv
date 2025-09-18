@@ -99,3 +99,13 @@ jobs:
 
         files: |
           aiv*.deb
+
+    - name: Publish DEB Package to Nexus
+      env:
+        NEXUS_USER: ${{ secrets.NEXUS_USER }}
+        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
+      run: |
+        curl -iv --user ${NEXUS_USER}:${NEXUS_PASSWORD} \
+        "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=debian" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "apt.asset=@aiv_${VERSION}-${RELEASE}_all.deb"
