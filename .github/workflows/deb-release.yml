@@ -74,7 +74,7 @@ jobs:
         RELEASE: ${{ env.RELEASE }}
       run: |
         echo "Building Debian package for version $VERSION"
-        docker run --rm -e "VERSION=$VERSION" \
+        docker run --rm -e "VERSION=$VERSION" -e "RELEASE=$RELEASE" \
           -v $PWD:/workspace \
           -w /workspace \
           debian:12 \
