@@ -69,12 +69,18 @@ jobs:
         RELEASE: ${{ env.RELEASE }}
       run: |
         echo "Building Debian package for version $VERSION"
-        docker run --rm -e "VERSION=$VERSION" \
+        docker run --rm -e "VERSION=$VERSION" -e "RELEASE=$RELEASE" \
           -v $PWD:/workspace \
           -w /workspace \
           debian:12 \
           bash -c "apt-get update && apt-get install -y debhelper && \
                    bash aiv-build-deb.sh"
+
+    - name: Upload DEB Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: deb-files
+        path: aiv*.deb
 
     - name: Create and Push Tag
       env:
@@ -100,17 +106,21 @@ jobs:
         files: |
           aiv*.deb
 
-
   publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
+    - name: Download DEB Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: deb-files
+
     - name: Publish DEB Package to Nexus
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
         NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-        VERSION: ${{ needs.build.outputs.VERSION }}
-        RELEASE: ${{ needs.build.outputs.RELEASE }}
+        VERSION: ${{ env.VERSION }}
+        RELEASE: ${{ env.RELEASE }}
       run: |
         curl -iv --user ${NEXUS_USER}:${NEXUS_PASSWORD} \
         "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=debian" \
