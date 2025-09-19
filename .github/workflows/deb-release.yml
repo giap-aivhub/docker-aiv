@@ -15,6 +15,9 @@ jobs:
   build:
     if: contains(github.event.head_commit.message, '!Release') && contains(github.event.head_commit.message, 'deb')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.release.outputs.release }}
     steps:
     - uses: actions/checkout@v2
 
@@ -22,7 +25,7 @@ jobs:
       run: git fetch --tags
 
     - name: Parse Version from docker-compose.yml
-      id: parse_version
+      id: version
       run: |
         # Extract the latest version from the docker-compose line "image: aivhub/aiv:6.3.8"
         VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
@@ -32,8 +35,10 @@ jobs:
         fi
         echo "Parsed version: $VERSION"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Determine Release Number
+      id: release
       # if the tag already exists, get last release number and increment it. Example tags: `deb/6.3.8-1`, `deb/6.3.8-2`
       env:
         VERSION: ${{ env.VERSION }}
@@ -51,6 +56,7 @@ jobs:
           RELEASE=0
         fi
         echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+        echo "RELEASE=$RELEASE" >> $GITHUB_OUTPUT
         echo "Using release number: $RELEASE"
 
     - name: Get run.jar from Docker image
@@ -80,7 +86,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: deb-files
-        path: aiv*.deb
+        path: aiv_${{ env.VERSION }}-${{ env.RELEASE }}_all.deb
 
     - name: Create and Push Tag
       env:
@@ -111,16 +117,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download DEB Artifact
+      env:
+        NEXUS_USER: ${{ secrets.NEXUS_USER }}
+        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        VERSION: ${{needs.build.outputs.version}}
+        RELEASE: ${{needs.build.outputs.release}}
       uses: actions/download-artifact@v4
       with:
         name: deb-files
+        path: aiv_${{ env.VERSION }}-${{ env.RELEASE }}_all.deb
 
     - name: Publish DEB Package to Nexus
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
         NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-        VERSION: ${{ env.VERSION }}
-        RELEASE: ${{ env.RELEASE }}
+        VERSION: ${{needs.build.outputs.version}}
+        RELEASE: ${{needs.build.outputs.release}}
       run: |
         curl -iv --user ${NEXUS_USER}:${NEXUS_PASSWORD} \
         "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=debian" \
