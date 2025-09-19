@@ -15,6 +15,10 @@ jobs:
   build:
     if: contains(github.event.head_commit.message, '!Release') && contains(github.event.head_commit.message, 'deb')
     runs-on: ubuntu-latest
+    outputs:
+      deb_file: ${{ steps.build_deb.outputs.deb_file }}
+      version: ${{ env.VERSION }}
+      release: ${{ env.RELEASE }}
     steps:
     - uses: actions/checkout@v2
 
@@ -64,6 +68,7 @@ jobs:
         docker rm -f aiv_container
 
     - name: Build Debian package
+      id: build_deb
       env:
         VERSION: ${{ env.VERSION }}
         RELEASE: ${{ env.RELEASE }}
@@ -75,6 +80,13 @@ jobs:
           debian:12 \
           bash -c "apt-get update && apt-get install -y debhelper && \
                    bash aiv-build-deb.sh"
+        DEB_FILE=aiv_${VERSION}-${RELEASE}_all.deb
+        if [[ ! -f "$DEB_FILE" ]]; then
+          echo "Error: $DEB_FILE not found."
+          exit 1
+        fi
+        echo "DEB_FILE=$DEB_FILE" >> $GITHUB_ENV
+        echo "::set-output name=deb_file::$DEB_FILE"
 
     - name: Create and Push Tag
       env:
@@ -98,8 +110,7 @@ jobs:
           Debian package release for AIV version ${{ env.VERSION }}-${{ env.RELEASE }}
 
         files: |
-          aiv*.deb
-
+          ${{ steps.build_deb.outputs.deb_file }}
 
   publish:
     needs: build
@@ -109,11 +120,10 @@ jobs:
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
         NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-        VERSION: ${{ needs.build.outputs.VERSION }}
-        RELEASE: ${{ needs.build.outputs.RELEASE }}
+        DEB_FILE: ${{ needs.build.outputs.deb_file }}
       run: |
         curl -iv --user ${NEXUS_USER}:${NEXUS_PASSWORD} \
         "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=debian" \
         -H "accept: application/json" \
         -H "Content-Type: multipart/form-data" \
-        -F "apt.asset=@aiv_${VERSION}-${RELEASE}_all.deb"
+        -F "apt.asset=@${DEB_FILE}"
