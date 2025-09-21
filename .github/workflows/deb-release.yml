@@ -127,6 +127,11 @@ jobs:
         name: deb-files
         path: aiv_${{ env.VERSION }}-${{ env.RELEASE }}_all.deb
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      env:
+        SECRETS_CONTEXT: ${{ toJson(secrets) }}
+
     - name: Publish DEB Package to Nexus
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
