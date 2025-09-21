@@ -125,7 +125,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: deb-files
-        path: aiv_${{ env.VERSION }}-${{ env.RELEASE }}_all.deb
+        path: artifacts
 
     - name: Publish DEB Package to Nexus
       env:
@@ -138,4 +138,4 @@ jobs:
         "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=debian" \
         -H "accept: application/json" \
         -H "Content-Type: multipart/form-data" \
-        -F "apt.asset=@aiv_${VERSION}-${RELEASE}_all.deb"
+        -F "apt.asset=@artifacts/aiv_${VERSION}-${RELEASE}_all.deb"
