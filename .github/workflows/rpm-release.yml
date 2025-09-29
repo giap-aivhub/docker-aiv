@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,6 +15,9 @@ jobs:
   build:
     if: contains(github.event.head_commit.message, '!Release') && contains(github.event.head_commit.message, 'rpm')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.release.outputs.release }}
     steps:
     - uses: actions/checkout@v4
 
@@ -23,7 +25,7 @@ jobs:
       run: git fetch --tags
 
     - name: Parse Version from docker-compose.yml
-      id: parse_version
+      id: version
       run: |
         # Extract the latest version from the docker-compose line "image: aivhub/aiv:6.3.8"
         VERSION=$(cat docker-compose.yml | awk /'image: aivhub\/aiv:/ {print $2}' | cut -d':' -f2 | head -n1)
@@ -33,8 +35,10 @@ jobs:
         fi
         echo "Parsed version: $VERSION"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Determine Release Number
+      id: release
       # if the tag already exists, get last release number and increment it. Example tags: `rpm/6.3.8-1`, `rpm/6.3.8-2`
       env:
         VERSION: ${{ env.VERSION }}
@@ -52,6 +56,7 @@ jobs:
           RELEASE=0
         fi
         echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+        echo "RELEASE=$RELEASE" >> $GITHUB_OUTPUT
         echo "Using release number: $RELEASE"
 
     - name: Get run.jar from Docker image
@@ -69,10 +74,8 @@ jobs:
         VERSION: ${{ env.VERSION }}
         RELEASE: ${{ env.RELEASE }}
       run: |
-        echo "Building RPM package for version ${VERSION}-${RELEASE}"
-        docker run --rm \
-          -e "VERSION=$VERSION" \
-          -e "RELEASE=$RELEASE" \
+        echo "Building RPM package for version $VERSION"
+        docker run --rm -e "VERSION=$VERSION" -e "RELEASE=$RELEASE" \
           -v $PWD:/workspace \
           -w /workspace \
           rockylinux:9 \
@@ -91,6 +94,12 @@ jobs:
             bash aiv-build-rpm.sh
           "
 
+    - name: Upload RPM Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpm-files
+        path: aiv-${{ env.VERSION }}-${{ env.RELEASE }}.noarch.rpm
+
     - name: Create and Push Tag
       env:
         VERSION: ${{ env.VERSION }}
@@ -104,36 +113,66 @@ jobs:
         git push origin ${TAG_NAME}
 
     - name: Release
-      env:
-        VERSION: ${{ env.VERSION }}
-        RELEASE: ${{ env.RELEASE }}
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag_name: rpm/${{ env.VERSION }}-${{ env.RELEASE }}
-        name: "RPM Release ${{ env.VERSION }}-${{ env.RELEASE }}"
+        name: "RPM package ${{ env.VERSION }}-${{ env.RELEASE }}"
         body: |
           RPM package release for AIV version ${{ env.VERSION }}-${{ env.RELEASE }}
-          
-          ## Installation Instructions
-          
-          ### Red Hat Enterprise Linux / CentOS / Rocky Linux / AlmaLinux / Fedora:
+
+          # Installation Instructions
+          Switch to root user
+
+          ## Setup AIV Repository
           ```bash
-          # Download the RPM package from GitHub Releases
-          wget https://github.com/${{ github.repository }}/releases
-          
-          # Install the package
-          sudo dnf install -y ./aiv-${{ env.VERSION }}-${{ env.RELEASE }}.*.rpm
-          
-          # Start and enable the service
-          sudo systemctl enable --now aiv.service
+          cat > /etc/yum.repos.d/aiv.repo <<-EOF
+          [aiv]
+          name=AIV Repository
+          baseurl=http://nexus.test.mydocubank.com/repository/redhat/
+          enabled=1
+          gpgcheck=0
+          EOF
+          ```
+
+          ## Install AIV
+          ```bash
+          dnf install -y aiv
           ```
           
-          ## Requirements
-          - Java 17 or higher
-          - PostgreSQL server
-          - systemd (for service management)
-          
+          ## Start and enable the AIV service
+          ```bash
+          systemctl enable --now aiv.service
+          ```
+
         files: |
           aiv*.rpm
 
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download RPM Artifact
+      env:
+        NEXUS_USER: ${{ secrets.NEXUS_USER }}
+        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        VERSION: ${{needs.build.outputs.version}}
+        RELEASE: ${{needs.build.outputs.release}}
+      uses: actions/download-artifact@v4
+      with:
+        name: rpm-files
+        path: artifacts
+
+    - name: Publish RPM Package to Nexus
+      env:
+        NEXUS_USER: ${{ secrets.NEXUS_USER }}
+        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        VERSION: ${{needs.build.outputs.version}}
+        RELEASE: ${{needs.build.outputs.release}}
+      run: |
+        curl -iv --user ${NEXUS_USER}:${NEXUS_PASSWORD} \
+        "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=redhat" \
+        -H "Accept: application/json" \
+        -H "Content-Type: multipart/form-data" \
+        -F "yum.asset=@artifacts/aiv-${VERSION}-${RELEASE}.noarch.rpm" \
+        -F "yum.asset.filename=aiv-${VERSION}-${RELEASE}.noarch.rpm"

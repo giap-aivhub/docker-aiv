@@ -10,7 +10,7 @@ fi
 mkdir -p /var/log/aiv
 
 # Set proper ownership and permissions
-chown -R aiv:aiv /var/lib/aiv /etc/aiv /var/log/aiv
+chown -R aiv:aiv /var/lib/aiv /var/log/aiv
 
 #DEBHELPER#
 exit 0
