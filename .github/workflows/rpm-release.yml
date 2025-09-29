@@ -98,7 +98,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: rpm-files
-        path: aiv-${{ env.VERSION }}-${{ env.RELEASE }}.noarch.rpm
+        path: aiv-${{ env.VERSION }}-${{ env.RELEASE }}.el9.noarch.rpm
 
     - name: Create and Push Tag
       env:
@@ -174,5 +174,5 @@ jobs:
         "https://nexus.test.mydocubank.com/service/rest/v1/components?repository=redhat" \
         -H "Accept: application/json" \
         -H "Content-Type: multipart/form-data" \
-        -F "yum.asset=@artifacts/aiv-${VERSION}-${RELEASE}.noarch.rpm" \
-        -F "yum.asset.filename=aiv-${VERSION}-${RELEASE}.noarch.rpm"
+        -F "yum.asset=@artifacts/aiv-${VERSION}-${RELEASE}.el9.noarch.rpm" \
+        -F "yum.asset.filename=aiv-${VERSION}-${RELEASE}.el9.noarch.rpm"
