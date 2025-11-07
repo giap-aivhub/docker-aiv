@@ -38,7 +38,7 @@ services:
   aiv: 
     platform: linux/amd64
     container_name: aiv
-    image: aivhub/aiv:6.3.9
+    image: aivhub/aiv:6.4.1
     command: >
       /bin/bash -c '
       if [ ! -f "/opt/repository/econfig/application.yml" ]; then
